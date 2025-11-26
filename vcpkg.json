@@ -1,0 +1,11 @@
+{
+  "name": "renkoplayer",
+  "version-string": "0.1.0",
+  "dependencies": [
+    "qtbase",
+    "qtdeclarative",
+    "qt5compat",
+    "ffmpeg",
+    "opengl"
+  ]
+}
