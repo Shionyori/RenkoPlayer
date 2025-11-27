@@ -1,58 +1,72 @@
 # RenkoPlayer
 
-A modern, C++ based video player using Qt 6 and FFmpeg.
+一个基于 **C++20**、**Qt 6** 和 **FFmpeg** 构建的视频播放器。
 
-## Features
-- **Modern UI**: Built with Qt Quick (QML) for a fluid, dark-themed interface.
-- **Powerful Backend**: Uses FFmpeg for decoding, supporting a wide range of formats and network streams.
-- **Streaming Support**: Capable of playing RTSP, RTMP, HLS, and HTTP streams directly.
-- **Architecture**: Clean separation between the C++ decoding core and the QML UI.
+## 技术栈
+- **语言**: C++20
+- **框架**: Qt 6.9.1 (Core, Gui, Qml, Quick, OpenGL)
+- **媒体引擎**: FFmpeg 7.1
+- **构建系统**: CMake 3.20+
+- **包管理器**: vcpkg
 
-## Prerequisites
+## 开发环境搭建 (Windows)
 
-To build this project, you need:
-1.  **C++ Compiler** (MSVC, GCC, or Clang) supporting C++20.
-2.  **CMake** (3.20+).
-3.  **Qt 6** (Core, Gui, Qml, Quick, OpenGL modules).
-4.  **FFmpeg** (Development libraries: avcodec, avformat, avutil, swscale).
+### 前置要求
+1.  **Visual Studio 2022** (需安装 C++ 桌面开发工作负载)。
+2.  **Visual Studio Code** (需安装 CMake Tools 和 C++ 插件)。
+3.  **vcpkg**: 已安装并集成到系统或 VS Code 中。
 
-### Installing Dependencies (Windows via vcpkg)
+### 构建指南
+本项目使用 **vcpkg Manifest Mode**，你**不需要**手动运行 `vcpkg install`，CMake 会在配置阶段自动处理所有依赖。
 
-It is highly recommended to use `vcpkg` to manage dependencies.
-
-1.  Install vcpkg:
-    ```powershell
-    git clone https://github.com/microsoft/vcpkg
-    .\vcpkg\bootstrap-vcpkg.bat
-    ```
-2.  Install libraries:
-    ```powershell
-    .\vcpkg\vcpkg install qtbase qtdeclarative ffmpeg opengl --triplet x64-windows
+#### 方式一：使用 VS Code (推荐)
+1.  **克隆仓库**:
+    ```bash
+    git clone https://github.com/Shionyori/RenkoPlayer.git
+    cd RenkoPlayer
+    code .
     ```
 
-## Build Instructions
+2.  **配置 CMake**:
+    *   在 VS Code 底部状态栏选择构建预设：**"Visual Studio 17 2022 Release - x64"**。
+    *   *注意*: 首次配置可能需要较长时间（30-60分钟），因为 vcpkg 需要从源码编译 Qt6 和 FFmpeg。
 
-1.  Open the project folder in VS Code or a terminal.
-2.  Configure with CMake (assuming vcpkg toolchain usage):
+3.  **编译与运行**:
+    *   按 `F7` 进行编译。
+    *   按 `F5` 启动调试。
+
+#### 方式二：使用命令行 (CLI)
+如果你更喜欢使用终端，请确保已安装 CMake 和 vcpkg，并正确设置了环境变量。
+
+1.  **配置 (Configure)**:
+    请将 `[path/to/vcpkg]` 替换为你本地的 vcpkg 安装路径。
     ```powershell
     cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=[path/to/vcpkg]/scripts/buildsystems/vcpkg.cmake
     ```
-3.  Build:
+
+2.  **构建 (Build)**:
     ```powershell
     cmake --build build --config Release
     ```
-4.  Run:
+
+3.  **运行 (Run)**:
     ```powershell
     .\build\Release\RenkoPlayer.exe
     ```
 
-## Project Structure
+## 项目结构
+```text
+RenkoPlayer/
+├── src/
+│   ├── player/          # FFmpeg 解码核心逻辑
+│   ├── ui/              # QML 集成 (VideoRenderItem)
+│   ├── resources/       # QML 文件与资源
+│   └── main.cpp         # 程序入口
+├── docs/
+│   └── dev_logs/        # 开发日志与故障排查记录
+├── vcpkg.json           # 依赖清单文件
+└── CMakeLists.txt       # CMake 构建配置
+```
 
-- `src/main.cpp`: Application entry point.
-- `src/player/`: Core video decoding logic (FFmpeg wrapper).
-- `src/ui/`: QML integration and rendering classes.
-- `src/resources/qml/`: QML UI files.
-
-## Notes
-- This is a demo implementation. Audio synchronization is not implemented in this basic version (video only).
-- Ensure FFmpeg DLLs are in the executable directory if not automatically copied.
+## 文档
+请查看 [docs/dev_logs](./docs/dev_logs/) 目录获取详细的开发日志和故障排查过程。
