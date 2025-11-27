@@ -4,6 +4,7 @@
 VideoDecoder::VideoDecoder() {
     // Initialize network if needed (older ffmpeg versions)
     avformat_network_init();
+    m_stopThread = true; // Initially stopped
 }
 
 VideoDecoder::~VideoDecoder() {
@@ -12,17 +13,35 @@ VideoDecoder::~VideoDecoder() {
 }
 
 bool VideoDecoder::open(const std::string& url) {
-    stop(); // Ensure previous playback is stopped
+    std::lock_guard<std::mutex> lock(m_apiMutex);
+    
+    // Stop previous playback internally
+    m_stopThread = true;
+    if (m_decodeThread.joinable()) {
+        m_decodeThread.join();
+    }
+    freeResources();
+
     m_url = url;
 
     m_formatCtx = avformat_alloc_context();
-    if (avformat_open_input(&m_formatCtx, url.c_str(), nullptr, nullptr) != 0) {
-        std::cerr << "Could not open source: " << url << std::endl;
+    int ret = avformat_open_input(&m_formatCtx, url.c_str(), nullptr, nullptr);
+    if (ret != 0) {
+        char errbuf[1024];
+        av_strerror(ret, errbuf, sizeof(errbuf));
+        std::string errorMsg = "Could not open source: " + url + " Error: " + std::string(errbuf);
+        std::cerr << errorMsg << std::endl;
+        
+        std::lock_guard<std::mutex> lock(m_callbackMutex);
+        if (m_onError) m_onError(errorMsg);
         return false;
     }
 
     if (avformat_find_stream_info(m_formatCtx, nullptr) < 0) {
-        std::cerr << "Could not find stream info" << std::endl;
+        std::string errorMsg = "Could not find stream info";
+        std::cerr << errorMsg << std::endl;
+        std::lock_guard<std::mutex> lock(m_callbackMutex);
+        if (m_onError) m_onError(errorMsg);
         return false;
     }
 
@@ -35,14 +54,20 @@ bool VideoDecoder::open(const std::string& url) {
     }
 
     if (m_videoStreamIndex == -1) {
-        std::cerr << "No video stream found" << std::endl;
+        std::string errorMsg = "No video stream found";
+        std::cerr << errorMsg << std::endl;
+        std::lock_guard<std::mutex> lock(m_callbackMutex);
+        if (m_onError) m_onError(errorMsg);
         return false;
     }
 
     AVCodecParameters* codecPar = m_formatCtx->streams[m_videoStreamIndex]->codecpar;
     m_codec = avcodec_find_decoder(codecPar->codec_id);
     if (!m_codec) {
-        std::cerr << "Unsupported codec" << std::endl;
+        std::string errorMsg = "Unsupported codec";
+        std::cerr << errorMsg << std::endl;
+        std::lock_guard<std::mutex> lock(m_callbackMutex);
+        if (m_onError) m_onError(errorMsg);
         return false;
     }
 
@@ -50,12 +75,29 @@ bool VideoDecoder::open(const std::string& url) {
     avcodec_parameters_to_context(m_codecCtx, codecPar);
 
     if (avcodec_open2(m_codecCtx, m_codec, nullptr) < 0) {
-        std::cerr << "Could not open codec" << std::endl;
+        std::string errorMsg = "Could not open codec";
+        std::cerr << errorMsg << std::endl;
+        std::lock_guard<std::mutex> lock(m_callbackMutex);
+        if (m_onError) m_onError(errorMsg);
         return false;
     }
 
     m_width = m_codecCtx->width;
     m_height = m_codecCtx->height;
+
+    if (m_width <= 0 || m_height <= 0) {
+        std::string errorMsg = "Invalid video dimensions";
+        std::cerr << errorMsg << std::endl;
+        std::lock_guard<std::mutex> lock(m_callbackMutex);
+        if (m_onError) m_onError(errorMsg);
+        return false;
+    }
+
+    if (m_formatCtx->duration != AV_NOPTS_VALUE) {
+        m_duration = (double)m_formatCtx->duration / AV_TIME_BASE;
+    } else {
+        m_duration = 0.0;
+    }
 
     m_frame = av_frame_alloc();
     m_packet = av_packet_alloc();
@@ -63,6 +105,7 @@ bool VideoDecoder::open(const std::string& url) {
     // Start decoding thread
     m_stopThread = false;
     m_isPlaying = true;
+    m_seekTarget = -1.0;
     m_decodeThread = std::thread(&VideoDecoder::decodeLoop, this);
 
     return true;
@@ -73,19 +116,46 @@ void VideoDecoder::close() {
 }
 
 void VideoDecoder::play() {
-    m_isPlaying = true;
+    std::lock_guard<std::mutex> lock(m_apiMutex);
+    if (m_stopThread) {
+        if (!m_url.empty()) {
+            // We can't call open() here because it locks m_apiMutex.
+            // We need to release lock or use internal open.
+            // But open() is complex.
+            // Let's just unlock and call open.
+            // But wait, m_url might change? No, we are inside play().
+            std::string url = m_url;
+            m_apiMutex.unlock();
+            open(url);
+            m_apiMutex.lock();
+        }
+    } else {
+        m_isPlaying = true;
+    }
 }
 
 void VideoDecoder::pause() {
+    std::lock_guard<std::mutex> lock(m_apiMutex);
     m_isPlaying = false;
 }
 
 void VideoDecoder::stop() {
+    std::lock_guard<std::mutex> lock(m_apiMutex);
     m_stopThread = true;
     if (m_decodeThread.joinable()) {
         m_decodeThread.join();
     }
     freeResources();
+}
+
+double VideoDecoder::getDuration() const {
+    // m_duration is atomic-ish (double read is usually atomic on x64 but not guaranteed)
+    // But it's only written in open() and freeResources().
+    return m_duration;
+}
+
+void VideoDecoder::seek(double seconds) {
+    m_seekTarget = seconds;
 }
 
 void VideoDecoder::freeResources() {
@@ -100,6 +170,7 @@ void VideoDecoder::freeResources() {
     m_frame = nullptr;
     m_packet = nullptr;
     m_swsCtx = nullptr;
+    m_duration = 0.0;
 }
 
 void VideoDecoder::setFrameCallback(FrameCallback callback) {
@@ -107,7 +178,14 @@ void VideoDecoder::setFrameCallback(FrameCallback callback) {
     m_onFrame = callback;
 }
 
+void VideoDecoder::setErrorCallback(ErrorCallback callback) {
+    std::lock_guard<std::mutex> lock(m_callbackMutex);
+    m_onError = callback;
+}
+
 void VideoDecoder::decodeLoop() {
+    if (!m_formatCtx || !m_codecCtx) return;
+
     AVFrame* pFrameRGB = av_frame_alloc();
     if (!pFrameRGB) return;
 
@@ -117,35 +195,76 @@ void VideoDecoder::decodeLoop() {
     
     av_image_fill_arrays(pFrameRGB->data, pFrameRGB->linesize, buffer, AV_PIX_FMT_RGBA, m_width, m_height, 1);
 
+    // Check pixel format
+    if (m_codecCtx->pix_fmt == AV_PIX_FMT_NONE) {
+         std::cerr << "Invalid pixel format" << std::endl;
+         av_free(buffer);
+         av_frame_free(&pFrameRGB);
+         return;
+    }
+
     m_swsCtx = sws_getContext(m_width, m_height, m_codecCtx->pix_fmt,
                               m_width, m_height, AV_PIX_FMT_RGBA,
                               SWS_BILINEAR, nullptr, nullptr, nullptr);
+    
+    if (!m_swsCtx) {
+        std::string errorMsg = "Could not initialize SWS context";
+        std::cerr << errorMsg << std::endl;
+        std::lock_guard<std::mutex> lock(m_callbackMutex);
+        if (m_onError) m_onError(errorMsg);
+        av_free(buffer);
+        av_frame_free(&pFrameRGB);
+        return;
+    }
 
     while (!m_stopThread) {
+        // Handle Seek
+        double target = m_seekTarget.exchange(-1.0);
+        if (target >= 0.0) {
+            // Check for valid time_base
+            AVRational tb = m_formatCtx->streams[m_videoStreamIndex]->time_base;
+            if (tb.num != 0 && tb.den != 0) {
+                int64_t ts = target / av_q2d(tb);
+                if (av_seek_frame(m_formatCtx, m_videoStreamIndex, ts, AVSEEK_FLAG_BACKWARD) >= 0) {
+                    avcodec_flush_buffers(m_codecCtx);
+                }
+            }
+        }
+
         if (!m_isPlaying) {
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
             continue;
         }
 
-        if (av_read_frame(m_formatCtx, m_packet) >= 0) {
+        int readRet = av_read_frame(m_formatCtx, m_packet);
+        if (readRet >= 0) {
             if (m_packet->stream_index == m_videoStreamIndex) {
                 if (avcodec_send_packet(m_codecCtx, m_packet) == 0) {
                     while (avcodec_receive_frame(m_codecCtx, m_frame) == 0) {
                         // Convert to RGB
-                        sws_scale(m_swsCtx, (uint8_t const* const*)m_frame->data,
-                                  m_frame->linesize, 0, m_height,
-                                  pFrameRGB->data, pFrameRGB->linesize);
+                        if (m_swsCtx) {
+                            sws_scale(m_swsCtx, (uint8_t const* const*)m_frame->data,
+                                    m_frame->linesize, 0, m_height,
+                                    pFrameRGB->data, pFrameRGB->linesize);
 
-                        // Notify callback
-                        {
-                            std::lock_guard<std::mutex> lock(m_callbackMutex);
-                            if (m_onFrame) {
-                                Frame f;
-                                f.width = m_width;
-                                f.height = m_height;
-                                f.data[0] = pFrameRGB->data[0]; // Only need the first plane for RGBA
-                                f.linesize[0] = pFrameRGB->linesize[0];
-                                m_onFrame(f);
+                            // Notify callback
+                            {
+                                std::lock_guard<std::mutex> lock(m_callbackMutex);
+                                if (m_onFrame) {
+                                    Frame f;
+                                    f.width = m_width;
+                                    f.height = m_height;
+                                    f.data[0] = pFrameRGB->data[0]; // Only need the first plane for RGBA
+                                    f.linesize[0] = pFrameRGB->linesize[0];
+                                    
+                                    AVRational tb = m_formatCtx->streams[m_videoStreamIndex]->time_base;
+                                    if (tb.num != 0 && tb.den != 0) {
+                                         f.pts = m_frame->best_effort_timestamp * av_q2d(tb);
+                                    } else {
+                                         f.pts = 0;
+                                    }
+                                    m_onFrame(f);
+                                }
                             }
                         }
                         
@@ -157,8 +276,13 @@ void VideoDecoder::decodeLoop() {
             }
             av_packet_unref(m_packet);
         } else {
-            // End of stream or error
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            if (readRet == AVERROR_EOF) {
+                // End of stream, loop or stop? For now just wait
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            } else {
+                // Error
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            }
         }
     }
 

@@ -33,11 +33,20 @@ public:
     void pause();
     void stop();
 
+    // Time control
+    double getDuration() const;
+    void seek(double seconds);
+
     // Callback for new frames
     using FrameCallback = std::function<void(const Frame&)>;
     void setFrameCallback(FrameCallback callback);
+    
+    // Add error callback
+    using ErrorCallback = std::function<void(const std::string&)>;
+    void setErrorCallback(ErrorCallback callback);
 
     bool isPlaying() const { return m_isPlaying; }
+    bool isStopped() const { return m_stopThread; } // Add this
     int getWidth() const { return m_width; }
     int getHeight() const { return m_height; }
 
@@ -61,7 +70,11 @@ private:
     int m_videoStreamIndex = -1;
     int m_width = 0;
     int m_height = 0;
+    double m_duration = 0.0;
+    std::atomic<double> m_seekTarget{-1.0};
 
     FrameCallback m_onFrame;
+    ErrorCallback m_onError; // Add this
     std::mutex m_callbackMutex;
+    std::mutex m_apiMutex; // Protects public API
 };

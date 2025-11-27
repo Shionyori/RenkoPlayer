@@ -28,6 +28,8 @@ qt_add_qml_module(RenkoPlayer
     VERSION 1.0
     QML_FILES
         src/resources/qml/main.qml
+    RESOURCES
+        src/resources/app_icon.png
 )
 
 # Link Libraries
@@ -43,22 +45,24 @@ target_link_libraries(RenkoPlayer
 
 # Ensure Qt plugins are deployed (Critical for Windows)
 if(WIN32)
-    # Copy the 'platforms' plugin directory to the executable directory
-    # This is the most reliable way to ensure Qt finds the windows plugin
+    # Modern Approach: Use qt.conf to point to existing Qt plugins/QML instead of copying them.
+    # This saves disk space and build time.
+    # Generate qt.conf at build time (POST_BUILD) so it only is created for the active configuration.
     add_custom_command(TARGET RenkoPlayer POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:RenkoPlayer>/platforms"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "$<IF:$<CONFIG:Debug>,${CMAKE_BINARY_DIR}/vcpkg_installed/x64-windows/debug/Qt6/plugins/platforms/qwindowsd.dll,${CMAKE_BINARY_DIR}/vcpkg_installed/x64-windows/Qt6/plugins/platforms/qwindows.dll>"
-            "$<TARGET_FILE_DIR:RenkoPlayer>/platforms/"
-        COMMENT "Copying Qt platforms plugin..."
+        COMMAND ${CMAKE_COMMAND} -E echo "[Paths]" > "$<TARGET_FILE_DIR:RenkoPlayer>/qt.conf"
+        COMMAND ${CMAKE_COMMAND} -E echo "Prefix=$<IF:$<CONFIG:Debug>,${CMAKE_BINARY_DIR}/vcpkg_installed/x64-windows/debug/Qt6,${CMAKE_BINARY_DIR}/vcpkg_installed/x64-windows/Qt6>" >> "$<TARGET_FILE_DIR:RenkoPlayer>/qt.conf"
+        COMMAND ${CMAKE_COMMAND} -E echo "Plugins=plugins" >> "$<TARGET_FILE_DIR:RenkoPlayer>/qt.conf"
+        COMMAND ${CMAKE_COMMAND} -E echo "Qml2Imports=qml" >> "$<TARGET_FILE_DIR:RenkoPlayer>/qt.conf"
+        COMMENT "Generating qt.conf..."
     )
-    
-    # Also copy qml directory for QML modules
+
+    # Copy all runtime DLLs (Qt, FFmpeg, etc.) to the executable directory
+    # This allows the executable to be run directly (double-click) without setting PATH.
     add_custom_command(TARGET RenkoPlayer POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_directory
-            "$<IF:$<CONFIG:Debug>,${CMAKE_BINARY_DIR}/vcpkg_installed/x64-windows/debug/Qt6/qml,${CMAKE_BINARY_DIR}/vcpkg_installed/x64-windows/Qt6/qml>"
-            "$<TARGET_FILE_DIR:RenkoPlayer>/../qml" 
-        COMMENT "Copying QML modules..."
+            "$<IF:$<CONFIG:Debug>,${CMAKE_BINARY_DIR}/vcpkg_installed/x64-windows/debug/bin,${CMAKE_BINARY_DIR}/vcpkg_installed/x64-windows/bin>"
+            "$<TARGET_FILE_DIR:RenkoPlayer>"
+        COMMENT "Copying runtime DLLs..."
     )
 endif()
 

@@ -1,13 +1,27 @@
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
+#include <QIcon>
 #include "ui/VideoRenderItem.h"
 
 int main(int argc, char *argv[]) {
     QGuiApplication app(argc, argv);
 
+    app.setWindowIcon(QIcon(":/RenkoPlayer/src/resources/app_icon.png"));
+
     qmlRegisterType<VideoRenderItem>("RenkoPlayer", 1, 0, "VideoRenderItem");
 
     QQmlApplicationEngine engine;
+    
+    // Add local QML directory to import path
+    // The build system copies QML modules to <build_dir>/qml, which is one level up from <build_dir>/Debug/RenkoPlayer.exe
+    QString localQmlPath = QCoreApplication::applicationDirPath() + "/../qml";
+    engine.addImportPath(localQmlPath);
+    qDebug() << "Added local QML path:" << localQmlPath;
+
+    // Debug: Print import paths
+    qDebug() << "QML Import Paths:" << engine.importPathList();
+    qDebug() << "QML2_IMPORT_PATH env:" << qgetenv("QML2_IMPORT_PATH");
+
     const QUrl url(u"qrc:/RenkoPlayer/src/resources/qml/main.qml"_qs);
     
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,
