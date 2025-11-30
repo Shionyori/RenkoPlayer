@@ -10,6 +10,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(Qt6 REQUIRED COMPONENTS BuildInternals Core Gui Qml Quick OpenGL)
 qt_standard_project_setup()
 
+# Set Qt Policies to NEW to avoid warnings
+if(COMMAND qt_policy)
+    qt_policy(SET QTP0001 NEW)
+    qt_policy(SET QTP0004 NEW)
+endif()
+
 # FFmpeg Setup (Provided by vcpkg)
 find_package(FFMPEG REQUIRED)
 
