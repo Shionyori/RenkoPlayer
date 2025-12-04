@@ -195,10 +195,18 @@ PanoramaRenderItem::PanoramaRenderItem(QQuickItem* parent) : QQuickFramebufferOb
     m_decoder.setErrorCallback([this](const std::string& msg) {
         this->handleError(msg);
     });
+
+    m_audioTimer = new QTimer(this);
+    m_audioTimer->setInterval(10);
+    connect(m_audioTimer, &QTimer::timeout, this, &PanoramaRenderItem::updateAudio);
 }
 
 PanoramaRenderItem::~PanoramaRenderItem() {
     m_decoder.stop();
+    if (m_audioSink) {
+        m_audioSink->stop();
+        delete m_audioSink;
+    }
     if (m_loadingThread.joinable()) {
         m_loadingThread.join();
     }
@@ -226,6 +234,14 @@ void PanoramaRenderItem::setSource(const QString& source) {
             path = url.toLocalFile();
         }
         
+        // Stop Audio
+        if (m_audioSink) {
+            m_audioSink->stop();
+            delete m_audioSink;
+            m_audioSink = nullptr;
+        }
+        m_audioTimer->stop();
+        
         if (m_loadingThread.joinable()) {
             m_loadingThread.join();
         }
@@ -236,6 +252,25 @@ void PanoramaRenderItem::setSource(const QString& source) {
                 QMetaObject::invokeMethod(this, [this]() {
                     m_duration = m_decoder.getDuration() * 1000;
                     emit durationChanged();
+                    
+                    // Init Audio
+                    if (m_decoder.hasAudio()) {
+                        QAudioFormat format;
+                        format.setSampleRate(44100);
+                        format.setChannelConfig(QAudioFormat::ChannelConfigStereo);
+                        format.setSampleFormat(QAudioFormat::Int16);
+                        
+                        QAudioDevice device = QMediaDevices::defaultAudioOutput();
+                        if (!device.isFormatSupported(format)) {
+                            qWarning() << "Default format not supported";
+                        }
+                        
+                        m_audioSink = new QAudioSink(device, format, this);
+                        m_audioSink->setVolume(m_volume);
+                        m_audioOutputDevice = m_audioSink->start();
+                        m_audioTimer->start();
+                    }
+                    
                     play(); // Auto play
                 });
             }
@@ -270,15 +305,91 @@ void PanoramaRenderItem::setPosition(qint64 position) {
 }
 
 void PanoramaRenderItem::play() {
-    m_decoder.play();
+    if (m_decoder.isStopped() && !m_source.isEmpty()) {
+        QString path = m_source;
+        QUrl url(m_source);
+        if (url.isLocalFile()) {
+            path = url.toLocalFile();
+        }
+        std::string stdPath = path.toStdString();
+
+        if (m_loadingThread.joinable()) {
+            m_loadingThread.join();
+        }
+
+        m_loadingThread = std::thread([this, stdPath]() {
+            if (m_decoder.open(stdPath)) {
+                QMetaObject::invokeMethod(this, [this]() {
+                    m_duration = m_decoder.getDuration() * 1000;
+                    emit durationChanged();
+                    
+                    // Init Audio
+                    if (m_decoder.hasAudio()) {
+                        QAudioFormat format;
+                        format.setSampleRate(44100);
+                        format.setChannelConfig(QAudioFormat::ChannelConfigStereo);
+                        format.setSampleFormat(QAudioFormat::Int16);
+                        
+                        QAudioDevice device = QMediaDevices::defaultAudioOutput();
+                        if (!device.isFormatSupported(format)) {
+                            qWarning() << "Default format not supported";
+                        }
+                        
+                        if (m_audioSink) {
+                            m_audioSink->stop();
+                            delete m_audioSink;
+                        }
+                        
+                        m_audioSink = new QAudioSink(device, format, this);
+                        m_audioSink->setVolume(m_volume);
+                        m_audioOutputDevice = m_audioSink->start();
+                        m_audioTimer->start();
+                    }
+                    
+                    m_decoder.play();
+                });
+            }
+        });
+    } else {
+        m_decoder.play();
+        if (m_audioSink && m_audioSink->state() == QAudio::SuspendedState) {
+            m_audioSink->resume();
+        }
+    }
 }
 
 void PanoramaRenderItem::pause() {
     m_decoder.pause();
+    if (m_audioSink && m_audioSink->state() == QAudio::ActiveState) {
+        m_audioSink->suspend();
+    }
 }
 
 void PanoramaRenderItem::stop() {
     m_decoder.stop();
+    if (m_audioSink) {
+        m_audioSink->stop();
+    }
+}
+
+void PanoramaRenderItem::updateAudio() {
+    if (!m_audioSink || !m_audioOutputDevice || m_audioSink->state() == QAudio::StoppedState) return;
+    
+    int chunks = m_audioSink->bytesFree();
+    if (chunks > 0) {
+        std::vector<uint8_t> buf(chunks);
+        int read = m_decoder.getAudioData(buf.data(), chunks);
+        if (read > 0) {
+            m_audioOutputDevice->write((const char*)buf.data(), read);
+        }
+    }
+}
+
+void PanoramaRenderItem::setVolume(qreal volume) {
+    if (qFuzzyCompare(m_volume, volume)) return;
+    m_volume = volume;
+    if (m_audioSink) m_audioSink->setVolume(m_volume);
+    emit volumeChanged();
 }
 
 void PanoramaRenderItem::updateFrame(const VideoDecoder::Frame& frame) {

@@ -14,11 +14,20 @@ VideoRenderItem::VideoRenderItem(QQuickItem* parent) : QQuickPaintedItem(parent)
     m_decoder.setErrorCallback([this](const std::string& msg) {
         this->handleError(msg);
     });
+
+    m_audioTimer = new QTimer(this);
+    m_audioTimer->setInterval(10);
+    connect(m_audioTimer, &QTimer::timeout, this, &VideoRenderItem::updateAudio);
 }
 
 VideoRenderItem::~VideoRenderItem() {
     // Stop decoder first
     m_decoder.stop();
+    
+    if (m_audioSink) {
+        m_audioSink->stop();
+        delete m_audioSink;
+    }
     
     // Wait for any loading thread to finish
     if (m_loadingThread.joinable()) {
@@ -55,6 +64,14 @@ void VideoRenderItem::setSource(const QString& source) {
             path = url.toLocalFile();
         }
         
+        // Stop Audio
+        if (m_audioSink) {
+            m_audioSink->stop();
+            delete m_audioSink;
+            m_audioSink = nullptr;
+        }
+        m_audioTimer->stop();
+        
         // Join previous thread if running
         if (m_loadingThread.joinable()) {
             m_loadingThread.join();
@@ -67,6 +84,25 @@ void VideoRenderItem::setSource(const QString& source) {
                 QMetaObject::invokeMethod(this, [this]() {
                     m_duration = m_decoder.getDuration() * 1000;
                     emit durationChanged();
+                    
+                    // Init Audio
+                    if (m_decoder.hasAudio()) {
+                        QAudioFormat format;
+                        format.setSampleRate(44100);
+                        format.setChannelConfig(QAudioFormat::ChannelConfigStereo);
+                        format.setSampleFormat(QAudioFormat::Int16);
+                        
+                        QAudioDevice device = QMediaDevices::defaultAudioOutput();
+                        if (!device.isFormatSupported(format)) {
+                            qWarning() << "Default format not supported, trying to find nearest";
+                            // format = device.preferredFormat(); // Qt6 might not have this exact method, check docs or assume standard
+                        }
+                        
+                        m_audioSink = new QAudioSink(device, format, this);
+                        m_audioSink->setVolume(m_volume);
+                        m_audioOutputDevice = m_audioSink->start();
+                        m_audioTimer->start();
+                    }
                 });
             }
         });
@@ -108,20 +144,75 @@ void VideoRenderItem::play() {
                 QMetaObject::invokeMethod(this, [this]() {
                     m_duration = m_decoder.getDuration() * 1000;
                     emit durationChanged();
+                    
+                    // Init Audio
+                    if (m_decoder.hasAudio()) {
+                        QAudioFormat format;
+                        format.setSampleRate(44100);
+                        format.setChannelConfig(QAudioFormat::ChannelConfigStereo);
+                        format.setSampleFormat(QAudioFormat::Int16);
+                        
+                        QAudioDevice device = QMediaDevices::defaultAudioOutput();
+                        if (!device.isFormatSupported(format)) {
+                            qWarning() << "Default format not supported";
+                        }
+                        
+                        if (m_audioSink) {
+                            m_audioSink->stop();
+                            delete m_audioSink;
+                        }
+                        
+                        m_audioSink = new QAudioSink(device, format, this);
+                        m_audioSink->setVolume(m_volume);
+                        m_audioOutputDevice = m_audioSink->start();
+                        m_audioTimer->start();
+                    }
+
+                    m_decoder.play();
                 });
             }
         });
     } else {
         m_decoder.play();
+        if (m_audioSink && m_audioSink->state() == QAudio::SuspendedState) {
+            m_audioSink->resume();
+        }
     }
 }
 
 void VideoRenderItem::pause() {
     m_decoder.pause();
+    if (m_audioSink && m_audioSink->state() == QAudio::ActiveState) {
+        m_audioSink->suspend();
+    }
 }
 
 void VideoRenderItem::stop() {
     m_decoder.stop();
+    if (m_audioSink) {
+        m_audioSink->stop();
+    }
+}
+
+void VideoRenderItem::updateAudio() {
+    if (!m_audioSink || !m_audioOutputDevice || m_audioSink->state() == QAudio::StoppedState) return;
+    
+    int chunks = m_audioSink->bytesFree();
+    if (chunks > 0) {
+        std::vector<uint8_t> buf(chunks);
+        int read = m_decoder.getAudioData(buf.data(), chunks);
+        if (read > 0) {
+            m_audioOutputDevice->write((const char*)buf.data(), read);
+        }
+    }
+}
+
+qreal VideoRenderItem::volume() const { return m_volume; }
+void VideoRenderItem::setVolume(qreal volume) {
+    if (qFuzzyCompare(m_volume, volume)) return;
+    m_volume = volume;
+    if (m_audioSink) m_audioSink->setVolume(m_volume);
+    emit volumeChanged();
 }
 
 void VideoRenderItem::updateFrame(const VideoDecoder::Frame& frame) {

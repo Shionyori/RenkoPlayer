@@ -1,6 +1,10 @@
 #include "VideoDecoder.h"
 #include <iostream>
 
+extern "C" {
+#include <libavutil/opt.h>
+}
+
 VideoDecoder::VideoDecoder() {
     // Initialize network if needed (older ffmpeg versions)
     avformat_network_init();
@@ -10,6 +14,30 @@ VideoDecoder::VideoDecoder() {
 VideoDecoder::~VideoDecoder() {
     stop();
     freeResources();
+}
+
+void VideoDecoder::freeResources() {
+    if (m_codecCtx) avcodec_free_context(&m_codecCtx);
+    if (m_audioCodecCtx) avcodec_free_context(&m_audioCodecCtx);
+    if (m_formatCtx) avformat_close_input(&m_formatCtx);
+    if (m_frame) av_frame_free(&m_frame);
+    if (m_packet) av_packet_free(&m_packet);
+    if (m_swsCtx) sws_freeContext(m_swsCtx);
+    if (m_swrCtx) swr_free(&m_swrCtx);
+    
+    m_codecCtx = nullptr;
+    m_audioCodecCtx = nullptr;
+    m_formatCtx = nullptr;
+    m_frame = nullptr;
+    m_packet = nullptr;
+    m_swsCtx = nullptr;
+    m_swrCtx = nullptr;
+    m_duration = 0.0;
+    m_audioStreamIndex = -1;
+    m_videoStreamIndex = -1;
+    
+    std::lock_guard<std::mutex> lock(m_audioMutex);
+    m_audioBuffer.clear();
 }
 
 bool VideoDecoder::open(const std::string& url) {
@@ -45,10 +73,20 @@ bool VideoDecoder::open(const std::string& url) {
         return false;
     }
 
+    // Find Video Stream
     m_videoStreamIndex = -1;
     for (unsigned int i = 0; i < m_formatCtx->nb_streams; i++) {
         if (m_formatCtx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
             m_videoStreamIndex = i;
+            break;
+        }
+    }
+
+    // Find Audio Stream
+    m_audioStreamIndex = -1;
+    for (unsigned int i = 0; i < m_formatCtx->nb_streams; i++) {
+        if (m_formatCtx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
+            m_audioStreamIndex = i;
             break;
         }
     }
@@ -61,10 +99,11 @@ bool VideoDecoder::open(const std::string& url) {
         return false;
     }
 
+    // Init Video Codec
     AVCodecParameters* codecPar = m_formatCtx->streams[m_videoStreamIndex]->codecpar;
     m_codec = avcodec_find_decoder(codecPar->codec_id);
     if (!m_codec) {
-        std::string errorMsg = "Unsupported codec";
+        std::string errorMsg = "Unsupported video codec";
         std::cerr << errorMsg << std::endl;
         std::lock_guard<std::mutex> lock(m_callbackMutex);
         if (m_onError) m_onError(errorMsg);
@@ -75,7 +114,7 @@ bool VideoDecoder::open(const std::string& url) {
     avcodec_parameters_to_context(m_codecCtx, codecPar);
 
     if (avcodec_open2(m_codecCtx, m_codec, nullptr) < 0) {
-        std::string errorMsg = "Could not open codec";
+        std::string errorMsg = "Could not open video codec";
         std::cerr << errorMsg << std::endl;
         std::lock_guard<std::mutex> lock(m_callbackMutex);
         if (m_onError) m_onError(errorMsg);
@@ -84,6 +123,36 @@ bool VideoDecoder::open(const std::string& url) {
 
     m_width = m_codecCtx->width;
     m_height = m_codecCtx->height;
+
+    // Init Audio Codec
+    if (m_audioStreamIndex >= 0) {
+        AVCodecParameters* audioCodecPar = m_formatCtx->streams[m_audioStreamIndex]->codecpar;
+        m_audioCodec = avcodec_find_decoder(audioCodecPar->codec_id);
+        if (m_audioCodec) {
+            m_audioCodecCtx = avcodec_alloc_context3(m_audioCodec);
+            avcodec_parameters_to_context(m_audioCodecCtx, audioCodecPar);
+            if (avcodec_open2(m_audioCodecCtx, m_audioCodec, nullptr) == 0) {
+                // Init SwrContext for resampling to Stereo S16LE 44100Hz
+                m_swrCtx = swr_alloc();
+                
+                // Input properties
+                av_opt_set_chlayout(m_swrCtx, "in_chlayout", &m_audioCodecCtx->ch_layout, 0);
+                av_opt_set_int(m_swrCtx, "in_sample_rate", m_audioCodecCtx->sample_rate, 0);
+                av_opt_set_sample_fmt(m_swrCtx, "in_sample_fmt", m_audioCodecCtx->sample_fmt, 0);
+                
+                // Output properties (Stereo, 44100, S16)
+                AVChannelLayout out_layout = AV_CHANNEL_LAYOUT_STEREO;
+                av_opt_set_chlayout(m_swrCtx, "out_chlayout", &out_layout, 0);
+                av_opt_set_int(m_swrCtx, "out_sample_rate", 44100, 0);
+                av_opt_set_sample_fmt(m_swrCtx, "out_sample_fmt", AV_SAMPLE_FMT_S16, 0);
+                
+                swr_init(m_swrCtx);
+            } else {
+                std::cerr << "Could not open audio codec" << std::endl;
+                m_audioStreamIndex = -1; // Disable audio
+            }
+        }
+    }
 
     if (m_width <= 0 || m_height <= 0) {
         std::string errorMsg = "Invalid video dimensions";
@@ -158,21 +227,6 @@ void VideoDecoder::seek(double seconds) {
     m_seekTarget = seconds;
 }
 
-void VideoDecoder::freeResources() {
-    if (m_codecCtx) avcodec_free_context(&m_codecCtx);
-    if (m_formatCtx) avformat_close_input(&m_formatCtx);
-    if (m_frame) av_frame_free(&m_frame);
-    if (m_packet) av_packet_free(&m_packet);
-    if (m_swsCtx) sws_freeContext(m_swsCtx);
-    
-    m_codecCtx = nullptr;
-    m_formatCtx = nullptr;
-    m_frame = nullptr;
-    m_packet = nullptr;
-    m_swsCtx = nullptr;
-    m_duration = 0.0;
-}
-
 void VideoDecoder::setFrameCallback(FrameCallback callback) {
     std::lock_guard<std::mutex> lock(m_callbackMutex);
     m_onFrame = callback;
@@ -181,6 +235,19 @@ void VideoDecoder::setFrameCallback(FrameCallback callback) {
 void VideoDecoder::setErrorCallback(ErrorCallback callback) {
     std::lock_guard<std::mutex> lock(m_callbackMutex);
     m_onError = callback;
+}
+
+int VideoDecoder::getAudioData(uint8_t* data, int max_size) {
+    std::lock_guard<std::mutex> lock(m_audioMutex);
+    if (m_audioBuffer.empty()) return 0;
+    
+    int to_copy = std::min((int)m_audioBuffer.size(), max_size);
+    memcpy(data, m_audioBuffer.data(), to_copy);
+    
+    // Remove read data
+    m_audioBuffer.erase(m_audioBuffer.begin(), m_audioBuffer.begin() + to_copy);
+    
+    return to_copy;
 }
 
 void VideoDecoder::decodeLoop() {
@@ -271,6 +338,36 @@ void VideoDecoder::decodeLoop() {
                         // Simple sync (naive) - assume 30fps roughly or just pump as fast as possible for now
                         // In a real player, you sync to PTS
                         std::this_thread::sleep_for(std::chrono::milliseconds(33));
+                    }
+                }
+            } else if (m_packet->stream_index == m_audioStreamIndex) {
+                if (avcodec_send_packet(m_audioCodecCtx, m_packet) == 0) {
+                    while (avcodec_receive_frame(m_audioCodecCtx, m_frame) == 0) {
+                        if (m_swrCtx) {
+                            // Resample
+                            int dst_samples = av_rescale_rnd(swr_get_delay(m_swrCtx, m_audioCodecCtx->sample_rate) +
+                                            m_frame->nb_samples, 44100, m_audioCodecCtx->sample_rate, AV_ROUND_UP);
+                            
+                            uint8_t* output_buffer = nullptr;
+                            av_samples_alloc(&output_buffer, nullptr, 2, dst_samples, AV_SAMPLE_FMT_S16, 0);
+                            
+                            int converted_samples = swr_convert(m_swrCtx, &output_buffer, dst_samples,
+                                            (const uint8_t**)m_frame->data, m_frame->nb_samples);
+                            
+                            if (converted_samples > 0) {
+                                int buffer_size = av_samples_get_buffer_size(nullptr, 2, converted_samples, AV_SAMPLE_FMT_S16, 1);
+                                
+                                std::lock_guard<std::mutex> lock(m_audioMutex);
+                                // Limit buffer size to avoid OOM if audio is faster than playback
+                                if (m_audioBuffer.size() < 1024 * 1024 * 10) { // 10MB limit
+                                    size_t current_size = m_audioBuffer.size();
+                                    m_audioBuffer.resize(current_size + buffer_size);
+                                    memcpy(m_audioBuffer.data() + current_size, output_buffer, buffer_size);
+                                }
+                            }
+                            
+                            if (output_buffer) av_freep(&output_buffer);
+                        }
                     }
                 }
             }

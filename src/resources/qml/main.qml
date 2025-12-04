@@ -241,6 +241,27 @@ ApplicationWindow {
                         }
                     }
 
+                    // Volume Control
+                    RowLayout {
+                        spacing: 5
+                        Text {
+                            text: "Vol"
+                            color: "white"
+                            font.pixelSize: 12
+                        }
+                        Slider {
+                            id: volumeSlider
+                            from: 0.0
+                            to: 1.0
+                            value: 1.0
+                            Layout.preferredWidth: 100
+                            onMoved: {
+                                videoPlayer.volume = value
+                                panoramaPlayer.volume = value
+                            }
+                        }
+                    }
+
                     CheckBox {
                         text: "360 Mode"
                         checked: isPanorama

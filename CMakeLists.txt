@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Standard Qt Project Setup (Handles deployment, resources, etc.)
 # Requires Qt 6.3+
-find_package(Qt6 REQUIRED COMPONENTS BuildInternals Core Gui Qml Quick OpenGL Widgets)
+find_package(Qt6 REQUIRED COMPONENTS BuildInternals Core Gui Qml Quick OpenGL Widgets Multimedia)
 qt_standard_project_setup()
 
 # Set Qt Policies to NEW to avoid warnings
@@ -49,6 +49,7 @@ target_link_libraries(RenkoPlayer
     Qt6::Quick
     Qt6::OpenGL
     Qt6::Widgets
+    Qt6::Multimedia
     ${FFMPEG_LIBRARIES}
 )
 

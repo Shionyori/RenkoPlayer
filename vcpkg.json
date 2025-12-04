@@ -5,6 +5,7 @@
     "qtbase",
     "qtdeclarative",
     "qt5compat",
+    "qtmultimedia",
     "ffmpeg",
     "opengl"
   ]
