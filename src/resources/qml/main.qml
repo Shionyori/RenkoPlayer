@@ -75,6 +75,49 @@ ApplicationWindow {
             VideoRenderItem {
                 id: videoPlayer
                 anchors.fill: parent
+                visible: !isPanorama
+                
+                onDurationChanged: {
+                    if (!isPanorama) progressSlider.to = duration
+                }
+                onPositionChanged: {
+                    if (!isPanorama && !progressSlider.pressed) progressSlider.value = position
+                }
+            }
+
+            PanoramaRenderItem {
+                id: panoramaPlayer
+                anchors.fill: parent
+                visible: isPanorama
+                
+                onDurationChanged: {
+                    if (isPanorama) progressSlider.to = duration
+                }
+                onPositionChanged: {
+                    if (isPanorama && !progressSlider.pressed) progressSlider.value = position
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    property point lastPos
+                    onPressed: (mouse) => { lastPos = Qt.point(mouse.x, mouse.y) }
+                    onPositionChanged: (mouse) => {
+                        var dx = mouse.x - lastPos.x
+                        var dy = mouse.y - lastPos.y
+                        panoramaPlayer.yaw -= dx * 0.2
+                        panoramaPlayer.pitch += dy * 0.2
+                        // Clamp pitch
+                        if (panoramaPlayer.pitch > 89.0) panoramaPlayer.pitch = 89.0
+                        if (panoramaPlayer.pitch < -89.0) panoramaPlayer.pitch = -89.0
+                        lastPos = Qt.point(mouse.x, mouse.y)
+                    }
+                    onWheel: (wheel) => {
+                        var newFov = panoramaPlayer.fov - wheel.angleDelta.y / 120 * 5
+                        if (newFov < 30) newFov = 30
+                        if (newFov > 120) newFov = 120
+                        panoramaPlayer.fov = newFov
+                    }
+                }
             }
         }
 
@@ -95,7 +138,7 @@ ApplicationWindow {
                     spacing: 10
 
                     Text {
-                        text: formatTime(videoPlayer.position)
+                        text: formatTime(isPanorama ? panoramaPlayer.position : videoPlayer.position)
                         color: "white"
                         font.pixelSize: 12
                     }
@@ -104,18 +147,19 @@ ApplicationWindow {
                         id: progressSlider
                         Layout.fillWidth: true
                         from: 0
-                        to: videoPlayer.duration
+                        to: isPanorama ? panoramaPlayer.duration : videoPlayer.duration
                         // Use a binding that respects user interaction to prevent jitter
-                        value: pressed ? value : videoPlayer.position
+                        value: pressed ? value : (isPanorama ? panoramaPlayer.position : videoPlayer.position)
                         
                         // Only seek when user interacts
                         onMoved: {
-                            videoPlayer.position = value
+                            if (isPanorama) panoramaPlayer.position = value
+                            else videoPlayer.position = value
                         }
                     }
 
                     Text {
-                        text: formatTime(videoPlayer.duration)
+                        text: formatTime(isPanorama ? panoramaPlayer.duration : videoPlayer.duration)
                         color: "white"
                         font.pixelSize: 12
                     }
@@ -141,8 +185,13 @@ ApplicationWindow {
                     Button {
                         text: "Play"
                         onClicked: {
-                            videoPlayer.source = urlField.text
-                            videoPlayer.play()
+                            if (isPanorama) {
+                                panoramaPlayer.source = urlField.text
+                                panoramaPlayer.play()
+                            } else {
+                                videoPlayer.source = urlField.text
+                                videoPlayer.play()
+                            }
                         }
                         background: Rectangle {
                             color: "#007acc"
@@ -159,7 +208,8 @@ ApplicationWindow {
                     Button {
                         text: "Pause"
                         onClicked: {
-                            videoPlayer.pause()
+                            if (isPanorama) panoramaPlayer.pause()
+                            else videoPlayer.pause()
                         }
                         background: Rectangle {
                             color: "#e6a800"
@@ -177,6 +227,7 @@ ApplicationWindow {
                         text: "Stop"
                         onClicked: {
                             videoPlayer.stop()
+                            panoramaPlayer.stop()
                         }
                         background: Rectangle {
                             color: "#cc3300"
@@ -189,10 +240,44 @@ ApplicationWindow {
                             verticalAlignment: Text.AlignVCenter
                         }
                     }
+
+                    CheckBox {
+                        text: "360 Mode"
+                        checked: isPanorama
+                        onCheckedChanged: {
+                            var currentPos = isPanorama ? videoPlayer.position : panoramaPlayer.position
+                            var currentSrc = isPanorama ? videoPlayer.source : panoramaPlayer.source
+                            
+                            // Stop the previous one
+                            if (isPanorama) videoPlayer.stop()
+                            else panoramaPlayer.stop()
+                            
+                            isPanorama = checked
+                            
+                            // Start the new one
+                            if (isPanorama) {
+                                panoramaPlayer.source = currentSrc
+                                panoramaPlayer.position = currentPos
+                                panoramaPlayer.play()
+                            } else {
+                                videoPlayer.source = currentSrc
+                                videoPlayer.position = currentPos
+                                videoPlayer.play()
+                            }
+                        }
+                        contentItem: Text {
+                            text: parent.text
+                            color: "white"
+                            leftPadding: parent.indicator.width + parent.spacing
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                    }
                 }
             }
         }
     }
+    
+    property bool isPanorama: false
 
     function formatTime(ms) {
         var totalSeconds = Math.floor(ms / 1000);

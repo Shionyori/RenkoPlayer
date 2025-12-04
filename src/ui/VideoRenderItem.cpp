@@ -5,7 +5,7 @@
 
 VideoRenderItem::VideoRenderItem(QQuickItem* parent) : QQuickPaintedItem(parent) {
     // Optimize for video
-    setRenderTarget(QQuickPaintedItem::FramebufferObject);
+    // setRenderTarget(QQuickPaintedItem::FramebufferObject);
     
     m_decoder.setFrameCallback([this](const VideoDecoder::Frame& frame) {
         this->updateFrame(frame);

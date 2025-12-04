@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Standard Qt Project Setup (Handles deployment, resources, etc.)
 # Requires Qt 6.3+
-find_package(Qt6 REQUIRED COMPONENTS BuildInternals Core Gui Qml Quick OpenGL)
+find_package(Qt6 REQUIRED COMPONENTS BuildInternals Core Gui Qml Quick OpenGL Widgets)
 qt_standard_project_setup()
 
 # Set Qt Policies to NEW to avoid warnings
@@ -26,6 +26,8 @@ qt_add_executable(RenkoPlayer
     src/player/VideoDecoder.h
     src/ui/VideoRenderItem.cpp
     src/ui/VideoRenderItem.h
+    src/ui/PanoramaRenderItem.cpp
+    src/ui/PanoramaRenderItem.h
 )
 
 # QML Module Definition
@@ -46,6 +48,7 @@ target_link_libraries(RenkoPlayer
     Qt6::Qml
     Qt6::Quick
     Qt6::OpenGL
+    Qt6::Widgets
     ${FFMPEG_LIBRARIES}
 )
 
