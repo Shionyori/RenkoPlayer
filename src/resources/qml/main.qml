@@ -262,6 +262,25 @@ ApplicationWindow {
                         }
                     }
 
+                    ComboBox {
+                        model: ["Original", "1080p", "720p", "480p", "360p"]
+                        currentIndex: 0
+                        Layout.preferredWidth: 100
+                        onActivated: (index) => {
+                            var w = 0
+                            var h = 0
+                            switch(index) {
+                                case 0: w = 0; h = 0; break;
+                                case 1: w = 0; h = 1080; break;
+                                case 2: w = 0; h = 720; break;
+                                case 3: w = 0; h = 480; break;
+                                case 4: w = 0; h = 360; break;
+                            }
+                            videoPlayer.setResolution(w, h)
+                            panoramaPlayer.setResolution(w, h)
+                        }
+                    }
+
                     CheckBox {
                         text: "360 Mode"
                         checked: isPanorama

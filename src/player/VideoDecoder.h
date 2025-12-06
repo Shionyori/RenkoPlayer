@@ -57,6 +57,9 @@ public:
     int getWidth() const { return m_width; }
     int getHeight() const { return m_height; }
 
+    // Resolution control
+    void setTargetResolution(int width, int height);
+
 private:
     void decodeLoop();
     void freeResources();
@@ -78,6 +81,8 @@ private:
     int m_videoStreamIndex = -1;
     int m_width = 0;
     int m_height = 0;
+    int m_targetWidth = 0;
+    int m_targetHeight = 0;
     double m_duration = 0.0;
     std::atomic<double> m_seekTarget{-1.0};
 

@@ -372,6 +372,10 @@ void PanoramaRenderItem::stop() {
     }
 }
 
+void PanoramaRenderItem::setResolution(int width, int height) {
+    m_decoder.setTargetResolution(width, height);
+}
+
 void PanoramaRenderItem::updateAudio() {
     if (!m_audioSink || !m_audioOutputDevice || m_audioSink->state() == QAudio::StoppedState) return;
     

@@ -40,6 +40,11 @@ void VideoDecoder::freeResources() {
     m_audioBuffer.clear();
 }
 
+void VideoDecoder::setTargetResolution(int width, int height) {
+    m_targetWidth = width;
+    m_targetHeight = height;
+}
+
 bool VideoDecoder::open(const std::string& url) {
     std::lock_guard<std::mutex> lock(m_apiMutex);
     
@@ -256,33 +261,9 @@ void VideoDecoder::decodeLoop() {
     AVFrame* pFrameRGB = av_frame_alloc();
     if (!pFrameRGB) return;
 
-    // Buffer for RGB frame
-    int numBytes = av_image_get_buffer_size(AV_PIX_FMT_RGBA, m_width, m_height, 1);
-    uint8_t* buffer = (uint8_t*)av_malloc(numBytes * sizeof(uint8_t));
-    
-    av_image_fill_arrays(pFrameRGB->data, pFrameRGB->linesize, buffer, AV_PIX_FMT_RGBA, m_width, m_height, 1);
-
-    // Check pixel format
-    if (m_codecCtx->pix_fmt == AV_PIX_FMT_NONE) {
-         std::cerr << "Invalid pixel format" << std::endl;
-         av_free(buffer);
-         av_frame_free(&pFrameRGB);
-         return;
-    }
-
-    m_swsCtx = sws_getContext(m_width, m_height, m_codecCtx->pix_fmt,
-                              m_width, m_height, AV_PIX_FMT_RGBA,
-                              SWS_BILINEAR, nullptr, nullptr, nullptr);
-    
-    if (!m_swsCtx) {
-        std::string errorMsg = "Could not initialize SWS context";
-        std::cerr << errorMsg << std::endl;
-        std::lock_guard<std::mutex> lock(m_callbackMutex);
-        if (m_onError) m_onError(errorMsg);
-        av_free(buffer);
-        av_frame_free(&pFrameRGB);
-        return;
-    }
+    int currentDstWidth = 0;
+    int currentDstHeight = 0;
+    uint8_t* buffer = nullptr;
 
     while (!m_stopThread) {
         // Handle Seek
@@ -303,6 +284,54 @@ void VideoDecoder::decodeLoop() {
             continue;
         }
 
+        // Determine target size
+        int dstWidth = m_targetWidth;
+        int dstHeight = m_targetHeight;
+
+        if (dstHeight > 0 && dstWidth == 0) {
+             // Calculate width from aspect ratio
+             if (m_height > 0) {
+                dstWidth = (int)((int64_t)m_width * dstHeight / m_height);
+                // Ensure even width
+                dstWidth = (dstWidth + 1) & ~1; 
+             }
+        } else if (dstWidth > 0 && dstHeight == 0) {
+             if (m_width > 0) {
+                dstHeight = (int)((int64_t)m_height * dstWidth / m_width);
+                dstHeight = (dstHeight + 1) & ~1;
+             }
+        } else if (dstWidth <= 0 && dstHeight <= 0) {
+             dstWidth = m_width;
+             dstHeight = m_height;
+        }
+
+        // Check if we need to (re)initialize context and buffers
+        if (dstWidth != currentDstWidth || dstHeight != currentDstHeight || !m_swsCtx) {
+            if (buffer) av_free(buffer);
+            if (m_swsCtx) sws_freeContext(m_swsCtx);
+            
+            currentDstWidth = dstWidth;
+            currentDstHeight = dstHeight;
+
+            int numBytes = av_image_get_buffer_size(AV_PIX_FMT_RGBA, currentDstWidth, currentDstHeight, 1);
+            buffer = (uint8_t*)av_malloc(numBytes * sizeof(uint8_t));
+            
+            av_image_fill_arrays(pFrameRGB->data, pFrameRGB->linesize, buffer, AV_PIX_FMT_RGBA, currentDstWidth, currentDstHeight, 1);
+
+            m_swsCtx = sws_getContext(m_width, m_height, m_codecCtx->pix_fmt,
+                                      currentDstWidth, currentDstHeight, AV_PIX_FMT_RGBA,
+                                      SWS_BILINEAR, nullptr, nullptr, nullptr);
+            
+            if (!m_swsCtx) {
+                std::string errorMsg = "Could not initialize SWS context";
+                std::cerr << errorMsg << std::endl;
+                std::lock_guard<std::mutex> lock(m_callbackMutex);
+                if (m_onError) m_onError(errorMsg);
+                // If we can't create context, we can't decode video properly.
+                // But we shouldn't crash. Just continue and hope it recovers or user stops.
+            }
+        }
+
         int readRet = av_read_frame(m_formatCtx, m_packet);
         if (readRet >= 0) {
             if (m_packet->stream_index == m_videoStreamIndex) {
@@ -319,8 +348,8 @@ void VideoDecoder::decodeLoop() {
                                 std::lock_guard<std::mutex> lock(m_callbackMutex);
                                 if (m_onFrame) {
                                     Frame f;
-                                    f.width = m_width;
-                                    f.height = m_height;
+                                    f.width = currentDstWidth;
+                                    f.height = currentDstHeight;
                                     f.data[0] = pFrameRGB->data[0]; // Only need the first plane for RGBA
                                     f.linesize[0] = pFrameRGB->linesize[0];
                                     
@@ -383,6 +412,6 @@ void VideoDecoder::decodeLoop() {
         }
     }
 
-    av_free(buffer);
+    if (buffer) av_free(buffer);
     av_frame_free(&pFrameRGB);
 }

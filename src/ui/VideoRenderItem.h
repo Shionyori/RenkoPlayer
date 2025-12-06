@@ -35,6 +35,7 @@ public:
     Q_INVOKABLE void play();
     Q_INVOKABLE void pause();
     Q_INVOKABLE void stop();
+    Q_INVOKABLE void setResolution(int width, int height);
 
 signals:
     void sourceChanged();
