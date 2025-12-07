@@ -129,8 +129,8 @@ ApplicationWindow {
 
             ColumnLayout {
                 anchors.fill: parent
-                anchors.margins: 10
-                spacing: 5
+                anchors.margins: 15
+                spacing: 10
 
                 // Progress Bar
                 RowLayout {
@@ -140,7 +140,7 @@ ApplicationWindow {
                     Text {
                         text: formatTime(isPanorama ? panoramaPlayer.position : videoPlayer.position)
                         color: "white"
-                        font.pixelSize: 12
+                        font.pixelSize: 14
                     }
 
                     Slider {
@@ -151,6 +151,34 @@ ApplicationWindow {
                         // Use a binding that respects user interaction to prevent jitter
                         value: pressed ? value : (isPanorama ? panoramaPlayer.position : videoPlayer.position)
                         
+                        background: Rectangle {
+                            x: progressSlider.leftPadding
+                            y: progressSlider.topPadding + progressSlider.availableHeight / 2 - height / 2
+                            implicitWidth: 200
+                            implicitHeight: 4
+                            width: progressSlider.availableWidth
+                            height: implicitHeight
+                            radius: 2
+                            color: "#505050"
+
+                            Rectangle {
+                                width: progressSlider.visualPosition * parent.width
+                                height: parent.height
+                                color: "#3498db"
+                                radius: 2
+                            }
+                        }
+
+                        handle: Rectangle {
+                            x: progressSlider.leftPadding + progressSlider.visualPosition * (progressSlider.availableWidth - width)
+                            y: progressSlider.topPadding + progressSlider.availableHeight / 2 - height / 2
+                            implicitWidth: 16
+                            implicitHeight: 16
+                            radius: 8
+                            color: progressSlider.pressed ? "#f0f0f0" : "#f6f6f6"
+                            border.color: "#bdc3c7"
+                        }
+
                         // Only seek when user interacts
                         onMoved: {
                             if (isPanorama) panoramaPlayer.position = value
@@ -161,22 +189,27 @@ ApplicationWindow {
                     Text {
                         text: formatTime(isPanorama ? panoramaPlayer.duration : videoPlayer.duration)
                         color: "white"
-                        font.pixelSize: 12
+                        font.pixelSize: 14
                     }
                 }
 
                 // Buttons & URL
                 RowLayout {
                     Layout.fillWidth: true
-                    spacing: 10
+                    spacing: 15
 
                     TextField {
                         id: urlField
                         Layout.fillWidth: true
+                        Layout.preferredHeight: 32
                         placeholderText: "Enter Video URL (e.g., rtsp://..., http://..., or file path)"
                         placeholderTextColor: "gray"
-                        text: ""
                         color: "white"
+                        font.pixelSize: 14
+                        verticalAlignment: TextInput.AlignVCenter
+                        leftPadding: 10
+                        rightPadding: 10
+
                         background: Rectangle {
                             color: "#3d3d3d"
                             radius: 4
@@ -248,7 +281,7 @@ ApplicationWindow {
                         Text {
                             text: "Vol"
                             color: "white"
-                            font.pixelSize: 12
+                            font.pixelSize: 14
                         }
                         Slider {
                             id: volumeSlider
@@ -256,6 +289,35 @@ ApplicationWindow {
                             to: 1.0
                             value: 1.0
                             Layout.preferredWidth: 100
+                            
+                            background: Rectangle {
+                                x: volumeSlider.leftPadding
+                                y: volumeSlider.topPadding + volumeSlider.availableHeight / 2 - height / 2
+                                implicitWidth: 200
+                                implicitHeight: 4
+                                width: volumeSlider.availableWidth
+                                height: implicitHeight
+                                radius: 2
+                                color: "#505050"
+
+                                Rectangle {
+                                    width: volumeSlider.visualPosition * parent.width
+                                    height: parent.height
+                                    color: "#3498db"
+                                    radius: 2
+                                }
+                            }
+
+                            handle: Rectangle {
+                                x: volumeSlider.leftPadding + volumeSlider.visualPosition * (volumeSlider.availableWidth - width)
+                                y: volumeSlider.topPadding + volumeSlider.availableHeight / 2 - height / 2
+                                implicitWidth: 16
+                                implicitHeight: 16
+                                radius: 8
+                                color: volumeSlider.pressed ? "#f0f0f0" : "#f6f6f6"
+                                border.color: "#bdc3c7"
+                            }
+
                             onMoved: {
                                 videoPlayer.volume = value
                                 panoramaPlayer.volume = value
@@ -264,9 +326,92 @@ ApplicationWindow {
                     }
 
                     ComboBox {
+                        id: resolutionCombo
                         model: ["Original", "1080p", "720p", "480p", "360p"]
                         currentIndex: 0
                         Layout.preferredWidth: 100
+                        font.pixelSize: 14
+
+                        background: Rectangle {
+                            implicitWidth: 120
+                            implicitHeight: 35
+                            color: resolutionCombo.pressed ? "#4a4a4a" : (resolutionCombo.hovered ? "#444444" : "#3d3d3d")
+                            border.color: "#3d3d3d"
+                            radius: 4
+                        }                        
+
+                        delegate: ItemDelegate {
+                            width: resolutionCombo.width
+                            height: 32
+                            contentItem: Text {
+                                text: modelData
+                                color: "white"
+                                font: resolutionCombo.font
+                                elide: Text.ElideRight
+                                verticalAlignment: Text.AlignVCenter
+                                height: parent.height
+                                leftPadding: 10
+                            }
+                            background: Rectangle {
+                                color: pressed ? "#5a5a5a" : (resolutionCombo.highlightedIndex === index ? "#505050" : "#2d2d2d")
+                            }
+                            highlighted: resolutionCombo.highlightedIndex === index
+                        }
+
+                        indicator: Canvas {
+                            id: canvas
+                            x: resolutionCombo.width - width - resolutionCombo.rightPadding
+                            y: resolutionCombo.topPadding + (resolutionCombo.availableHeight - height) / 2
+                            width: 12
+                            height: 8
+                            contextType: "2d"
+
+                            Connections {
+                                target: resolutionCombo
+                                function onPressedChanged() { canvas.requestPaint(); }
+                            }
+
+                            onPaint: {
+                                context.reset();
+                                context.moveTo(0, 0);
+                                context.lineTo(width, 0);
+                                context.lineTo(width / 2, height);
+                                context.closePath();
+                                context.fillStyle = "white";
+                                context.fill();
+                            }
+                        }
+
+                        contentItem: Text {
+                            leftPadding: 10
+                            rightPadding: resolutionCombo.indicator.width + resolutionCombo.spacing
+
+                            text: resolutionCombo.displayText
+                            font: resolutionCombo.font
+                            color: "white"
+                            verticalAlignment: Text.AlignVCenter
+                            elide: Text.ElideRight
+                        }
+
+                        popup: Popup {
+                            y: resolutionCombo.height - 1
+                            width: resolutionCombo.width
+                            height: resolutionCombo.count * 32 + 2 * padding
+                            padding: 1
+
+                            contentItem: ListView {
+                                clip: true
+                                model: resolutionCombo.popup.visible ? resolutionCombo.delegateModel : null
+                                currentIndex: resolutionCombo.highlightedIndex
+                            }
+
+                            background: Rectangle {
+                                border.color: "#3d3d3d"
+                                color: "#2d2d2d"
+                                radius: 4
+                            }
+                        }
+
                         onActivated: (index) => {
                             var w = 0
                             var h = 0
@@ -283,7 +428,8 @@ ApplicationWindow {
                     }
 
                     CheckBox {
-                        text: "360 Mode"
+                        text: "360° Mode"
+                        font.pixelSize: 14
                         checked: isPanorama
                         onCheckedChanged: {
                             var currentPos = isPanorama ? videoPlayer.position : panoramaPlayer.position
@@ -309,7 +455,8 @@ ApplicationWindow {
                         contentItem: Text {
                             text: parent.text
                             color: "white"
-                            leftPadding: parent.indicator.width + parent.spacing
+                            font: parent.font
+                            leftPadding: parent.indicator.width + parent.spacing + 5
                             verticalAlignment: Text.AlignVCenter
                         }
                     }
