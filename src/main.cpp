@@ -24,7 +24,7 @@ int main(int argc, char *argv[]) {
 
     // Updated path for Qt 6 Standard Policy (QTP0001)
     // Default prefix is /qt/qml/<URI>/...
-    app.setWindowIcon(QIcon(":/qt/qml/RenkoPlayer/src/resources/app_icon.png"));
+    app.setWindowIcon(QIcon(":/qt/qml/RenkoPlayer/src/resources/app.ico"));
 
     qmlRegisterType<VideoRenderItem>("RenkoPlayer", 1, 0, "VideoRenderItem");
     qmlRegisterType<PanoramaRenderItem>("RenkoPlayer", 1, 0, "PanoramaRenderItem");

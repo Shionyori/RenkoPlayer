@@ -174,7 +174,8 @@ ApplicationWindow {
                         id: urlField
                         Layout.fillWidth: true
                         placeholderText: "Enter Video URL (e.g., rtsp://..., http://..., or file path)"
-                        text: "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+                        placeholderTextColor: "gray"
+                        text: ""
                         color: "white"
                         background: Rectangle {
                             color: "#3d3d3d"
@@ -183,7 +184,6 @@ ApplicationWindow {
                     }
 
                     Button {
-                        text: "Play"
                         onClicked: {
                             if (isPanorama) {
                                 panoramaPlayer.source = urlField.text
@@ -193,51 +193,52 @@ ApplicationWindow {
                                 videoPlayer.play()
                             }
                         }
+                        
+                        icon.source: "../play.svg"
+                        icon.color: "lightgreen"
+                        icon.width: 24
+                        icon.height: 24
+                        display: AbstractButton.IconOnly
+
                         background: Rectangle {
-                            color: "#007acc"
+                            color: parent.down ? "#40ffffff" : (parent.hovered ? "#20ffffff" : "transparent")
                             radius: 4
-                        }
-                        contentItem: Text {
-                            text: parent.text
-                            color: "white"
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
                         }
                     }
 
                     Button {
-                        text: "Pause"
                         onClicked: {
                             if (isPanorama) panoramaPlayer.pause()
                             else videoPlayer.pause()
                         }
+                        
+                        icon.source: "../pause.svg"
+                        icon.color: "orange"
+                        icon.width: 24
+                        icon.height: 24
+                        display: AbstractButton.IconOnly
+
                         background: Rectangle {
-                            color: "#e6a800"
+                            color: parent.down ? "#40ffffff" : (parent.hovered ? "#20ffffff" : "transparent")
                             radius: 4
-                        }
-                        contentItem: Text {
-                            text: parent.text
-                            color: "white"
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
                         }
                     }
 
                     Button {
-                        text: "Stop"
                         onClicked: {
                             videoPlayer.stop()
                             panoramaPlayer.stop()
                         }
+                        
+                        icon.source: "../stop.svg"
+                        icon.color: "lightcoral"
+                        icon.width: 24
+                        icon.height: 24
+                        display: AbstractButton.IconOnly
+
                         background: Rectangle {
-                            color: "#cc3300"
+                            color: parent.down ? "#40ffffff" : (parent.hovered ? "#20ffffff" : "transparent")
                             radius: 4
-                        }
-                        contentItem: Text {
-                            text: parent.text
-                            color: "white"
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
                         }
                     }
 
