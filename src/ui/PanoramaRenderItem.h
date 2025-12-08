@@ -10,7 +10,7 @@
 #include <QMediaDevices>
 #include <QAudioDevice>
 #include <QTimer>
-#include "../player/VideoDecoder.h"
+#include "../core/VideoDecoder.h"
 
 class PanoramaRenderItem : public QQuickFramebufferObject {
     Q_OBJECT

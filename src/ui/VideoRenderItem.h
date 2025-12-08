@@ -7,7 +7,7 @@
 #include <QMediaDevices>
 #include <QAudioDevice>
 #include <QTimer>
-#include "../player/VideoDecoder.h"
+#include "../core/VideoDecoder.h"
 
 class VideoRenderItem : public QQuickPaintedItem {
     Q_OBJECT

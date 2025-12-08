@@ -227,7 +227,7 @@ ApplicationWindow {
                             }
                         }
                         
-                        icon.source: "../play.svg"
+                        icon.source: "../../assets/icons/play.svg"
                         icon.color: "lightgreen"
                         icon.width: 24
                         icon.height: 24
@@ -245,7 +245,7 @@ ApplicationWindow {
                             else videoPlayer.pause()
                         }
                         
-                        icon.source: "../pause.svg"
+                        icon.source: "../../assets/icons/pause.svg"
                         icon.color: "orange"
                         icon.width: 24
                         icon.height: 24
@@ -263,7 +263,7 @@ ApplicationWindow {
                             panoramaPlayer.stop()
                         }
                         
-                        icon.source: "../stop.svg"
+                        icon.source: "../../assets/icons/stop.svg"
                         icon.color: "lightcoral"
                         icon.width: 24
                         icon.height: 24

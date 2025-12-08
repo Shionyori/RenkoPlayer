@@ -24,7 +24,7 @@ int main(int argc, char *argv[]) {
 
     // Updated path for Qt 6 Standard Policy (QTP0001)
     // Default prefix is /qt/qml/<URI>/...
-    app.setWindowIcon(QIcon(":/qt/qml/RenkoPlayer/src/resources/app.ico"));
+    app.setWindowIcon(QIcon(":/qt/qml/RenkoPlayer/assets/icons/app.ico"));
 
     qmlRegisterType<VideoRenderItem>("RenkoPlayer", 1, 0, "VideoRenderItem");
     qmlRegisterType<PanoramaRenderItem>("RenkoPlayer", 1, 0, "PanoramaRenderItem");
@@ -42,7 +42,7 @@ int main(int argc, char *argv[]) {
     qDebug() << "QML2_IMPORT_PATH env:" << qgetenv("QML2_IMPORT_PATH");
 
     // Updated path for Qt 6 Standard Policy (QTP0001)
-    const QUrl url(u"qrc:/qt/qml/RenkoPlayer/src/resources/qml/main.qml"_qs);
+    const QUrl url(u"qrc:/qt/qml/RenkoPlayer/src/qml/main.qml"_qs);
     
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,
                      &app, [url](QObject *obj, const QUrl &objUrl) {

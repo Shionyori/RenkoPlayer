@@ -5,7 +5,7 @@ project(RenkoPlayer LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Standard Qt Project Setup (Handles deployment, resources, etc.)
+# Standard Qt Project Setup (Handles deployment, assets, etc.)
 # Requires Qt 6.3+
 find_package(Qt6 REQUIRED COMPONENTS BuildInternals Core Gui Qml Quick OpenGL Widgets Multimedia Svg)
 qt_standard_project_setup()
@@ -17,18 +17,22 @@ if(COMMAND qt_policy)
 endif()
 
 # FFmpeg Setup (Provided by vcpkg)
-find_package(FFMPEG REQUIRED)
+find_package(FFMPEG REQUIRED COMPONENTS avcodec avformat avutil swscale swresample)
+
+# Manually find swscale and swresample as the FindFFMPEG module might not export them correctly
+find_library(SWSCALE_LIB NAMES swscale libswscale REQUIRED)
+find_library(SWRESAMPLE_LIB NAMES swresample libswresample REQUIRED)
 
 # Define the executable with Qt's wrapper
 qt_add_executable(RenkoPlayer
     src/main.cpp
-    src/player/VideoDecoder.cpp
-    src/player/VideoDecoder.h
+    src/core/VideoDecoder.cpp
+    src/core/VideoDecoder.h
     src/ui/VideoRenderItem.cpp
     src/ui/VideoRenderItem.h
     src/ui/PanoramaRenderItem.cpp
     src/ui/PanoramaRenderItem.h
-    src/resources/RenkoPlayer.rc
+    assets/RenkoPlayer.rc
 )
 
 # QML Module Definition
@@ -36,12 +40,12 @@ qt_add_qml_module(RenkoPlayer
     URI RenkoPlayer
     VERSION 1.0
     QML_FILES
-        src/resources/qml/main.qml
+        src/qml/main.qml
     RESOURCES
-        src/resources/app.ico
-        src/resources/play.svg
-        src/resources/pause.svg
-        src/resources/stop.svg
+        assets/icons/app.ico
+        assets/icons/play.svg
+        assets/icons/pause.svg
+        assets/icons/stop.svg
 )
 
 # Link Libraries
@@ -56,6 +60,8 @@ target_link_libraries(RenkoPlayer
     Qt6::Multimedia
     Qt6::Svg
     ${FFMPEG_LIBRARIES}
+    ${SWSCALE_LIB}
+    ${SWRESAMPLE_LIB}
 )
 
 # Ensure Qt plugins are deployed (Critical for Windows)
