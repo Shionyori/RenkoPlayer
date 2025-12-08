@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Dialogs
+import Qt.labs.folderlistmodel
 import RenkoPlayer 1.0
 
 ApplicationWindow {
@@ -12,8 +13,39 @@ ApplicationWindow {
     color: "#1e1e1e"
 
     menuBar: MenuBar {
+        implicitHeight: 30
+
+        background: Rectangle {
+            color: "#f0f0f0"
+        }
+
+        delegate: MenuBarItem {
+            id: menuBarItem
+            font.pixelSize: 14
+
+            implicitWidth: Math.max(80, contentItem.paintedWidth + 24)
+            implicitHeight: 30
+
+            contentItem: Text {
+                text: menuBarItem.text
+                font: menuBarItem.font
+                color: menuBarItem.enabled ? "#333333" : "#aaaaaa"
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+                elide: Text.ElideRight
+            }
+
+            background: Rectangle {
+                anchors.centerIn: parent
+                width: parent.width - 8
+                height: parent.height - 2
+                color: menuBarItem.down ? "#d0d0d0" : (menuBarItem.hovered ? "#e0e0e0" : "transparent")
+                radius: 4
+            }
+        }
+
         Menu {
-            title: qsTr("&File")
+            title: qsTr("File")
             MenuItem {
                 text: qsTr("&Open File...")
                 onTriggered: fileDialog.open()
@@ -25,7 +57,7 @@ ApplicationWindow {
             }
         }
         Menu {
-            title: qsTr("&Help")
+            title: qsTr("Help")
             MenuItem {
                 text: qsTr("&About")
                 onTriggered: aboutDialog.open()

@@ -1,7 +1,8 @@
-#include <QApplication>
+#include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QIcon>
 #include <QQuickWindow>
+#include <QQuickStyle>
 #include "ui/VideoRenderItem.h"
 #include "ui/PanoramaRenderItem.h"
 
@@ -20,7 +21,10 @@ int main(int argc, char *argv[]) {
     // Disable native dialogs to prevent COM/Shell errors with OpenGL backend on Windows
     QCoreApplication::setAttribute(Qt::AA_DontUseNativeDialogs);
 
-    QApplication app(argc, argv);
+    QGuiApplication app(argc, argv);
+
+    // Explicitly set Fusion style to avoid default windows style
+    QQuickStyle::setStyle("Fusion");
 
     // Updated path for Qt 6 Standard Policy (QTP0001)
     // Default prefix is /qt/qml/<URI>/...

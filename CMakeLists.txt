@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Standard Qt Project Setup (Handles deployment, assets, etc.)
 # Requires Qt 6.3+
-find_package(Qt6 REQUIRED COMPONENTS BuildInternals Core Gui Qml Quick OpenGL Widgets Multimedia Svg)
+find_package(Qt6 REQUIRED COMPONENTS BuildInternals Core Gui Qml Quick QuickControls2 OpenGL Multimedia Svg)
 qt_standard_project_setup()
 
 # Set Qt Policies to NEW to avoid warnings
@@ -17,9 +17,9 @@ if(COMMAND qt_policy)
 endif()
 
 # FFmpeg Setup (Provided by vcpkg)
-find_package(FFMPEG REQUIRED COMPONENTS avcodec avformat avutil swscale swresample)
+find_package(FFmpeg REQUIRED COMPONENTS avcodec avformat avutil swscale swresample)
 
-# Manually find swscale and swresample as the FindFFMPEG module might not export them correctly
+# Manually find swscale and swresample as the FindFFmpeg module might not export them correctly
 find_library(SWSCALE_LIB NAMES swscale libswscale REQUIRED)
 find_library(SWRESAMPLE_LIB NAMES swresample libswresample REQUIRED)
 
@@ -55,8 +55,8 @@ target_link_libraries(RenkoPlayer
     Qt6::Gui
     Qt6::Qml
     Qt6::Quick
+    Qt6::QuickControls2
     Qt6::OpenGL
-    Qt6::Widgets
     Qt6::Multimedia
     Qt6::Svg
     ${FFMPEG_LIBRARIES}
