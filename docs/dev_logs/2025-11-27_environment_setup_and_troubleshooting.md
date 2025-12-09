@@ -84,8 +84,3 @@ endif()
 2.  **Qt 插件调试**: 遇到 `qt.qpa.plugin` 错误时，首先检查 `platforms/qwindows(d).dll` 是否存在于 exe 旁。
 3.  **QML 路径**: 不要凭感觉猜测资源路径。使用 `QDirIterator` 打印资源树是最高效的排查方法。
 4.  **环境变量**: VS Code 的 `.vscode/launch.json` 中配置 `PATH` 环境变量对于加载第三方 DLL（如 FFmpeg 的 dll）至关重要。
-
-## 6. 下一步计划
-- [ ] 验证 FFmpeg 视频解码功能（加载本地文件）。
-- [ ] 实现 OpenGL/QML 视频渲染层。
-- [ ] 添加音频播放支持（Audio Sink）。
