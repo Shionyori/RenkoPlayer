@@ -40,7 +40,7 @@ qt_add_qml_module(RenkoPlayer
     URI RenkoPlayer
     VERSION 1.0
     QML_FILES
-        src/qml/main.qml
+        qml/main.qml
     RESOURCES
         assets/icons/app.ico
         assets/icons/play.svg
@@ -92,3 +92,13 @@ target_link_directories(RenkoPlayer PRIVATE ${FFMPEG_LIBRARY_DIRS})
 
 # Windows: Ensure console is hidden in release, but shown in debug if needed
 # set_target_properties(RenkoPlayer PROPERTIES WIN32_EXECUTABLE ON)
+
+# Copy QML modules to the build directory after build
+set(QML_SOURCE_DIR "${CMAKE_SOURCE_DIR}/qml")
+set(QML_DEST_DIR "$<TARGET_FILE_DIR:RenkoPlayer>/../qml")
+
+add_custom_command(TARGET RenkoPlayer POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${QML_SOURCE_DIR}" "${QML_DEST_DIR}"
+    COMMENT "Copying QML modules to build directory"
+)
