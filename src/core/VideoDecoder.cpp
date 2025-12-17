@@ -35,6 +35,7 @@ void VideoDecoder::freeResources() {
     m_duration = 0.0;
     m_audioStreamIndex = -1;
     m_videoStreamIndex = -1;
+    m_skipUntilPts = -1.0;
     
     std::lock_guard<std::mutex> lock(m_audioMutex);
     m_audioBuffer.clear();
@@ -282,13 +283,24 @@ void VideoDecoder::decodeLoop() {
             int64_t ts = (int64_t)(target * AV_TIME_BASE); // 转为 AV_TIME_BASE 单位
 
             // Seek 整个文件（所有流）
-            if (avformat_seek_file(m_formatCtx, -1, INT64_MIN, ts, INT64_MAX, 0) >= 0) {
-                avcodec_flush_buffers(m_codecCtx);
-                if (m_audioCodecCtx) {
-                    avcodec_flush_buffers(m_audioCodecCtx);
-                }
+            // Use AVSEEK_FLAG_BACKWARD to ensure we land before the target
+            if (avformat_seek_file(m_formatCtx, -1, INT64_MIN, ts, ts, AVSEEK_FLAG_BACKWARD) < 0) {
+                 // Fallback
+                 avformat_seek_file(m_formatCtx, -1, INT64_MIN, ts, INT64_MAX, 0);
+            }
+
+            avcodec_flush_buffers(m_codecCtx);
+            if (m_audioCodecCtx) {
+                avcodec_flush_buffers(m_audioCodecCtx);
             }
             m_lastVideoPts = -1.0; // 重置视频 PTS
+            m_skipUntilPts = target; // Set skip target
+            
+            // Clear audio buffer to avoid playing old audio
+            {
+                std::lock_guard<std::mutex> lock(m_audioMutex);
+                m_audioBuffer.clear();
+            }
         }
 
         if (!m_isPlaying) {
@@ -373,6 +385,14 @@ void VideoDecoder::decodeLoop() {
                             AVRational tb = m_formatCtx->streams[m_videoStreamIndex]->time_base;
                             f.pts = (tb.num && tb.den) ? m_frame->best_effort_timestamp * av_q2d(tb) : 0.0;
 
+                            // Check if we need to skip
+                            if (m_skipUntilPts >= 0.0) {
+                                if (f.pts < m_skipUntilPts - 0.05) { // Allow small tolerance
+                                    continue; // Skip this frame
+                                }
+                                m_skipUntilPts = -1.0; // Reached target, stop skipping
+                            }
+
                             // 3. 深拷贝像素数据（逐行，避免 linesize padding 问题）
                             int totalBytes = f.linesize * f.height;
                             f.rgba.resize(totalBytes);
@@ -405,6 +425,15 @@ void VideoDecoder::decodeLoop() {
             } else if (m_packet->stream_index == m_audioStreamIndex) {
                 if (avcodec_send_packet(m_audioCodecCtx, m_packet) == 0) {
                     while (avcodec_receive_frame(m_audioCodecCtx, m_frame) == 0) {
+                        // Check if we need to skip audio
+                        if (m_skipUntilPts >= 0.0) {
+                             AVRational tb = m_formatCtx->streams[m_audioStreamIndex]->time_base;
+                             double audioPts = (tb.num && tb.den) ? m_frame->pts * av_q2d(tb) : 0.0;
+                             if (audioPts < m_skipUntilPts - 0.1) {
+                                 continue;
+                             }
+                        }
+
                         if (m_swrCtx) {
                             // 1. 先检查音频缓冲区是否过大（避免 OOM）
                             {

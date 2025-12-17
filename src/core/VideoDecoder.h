@@ -90,6 +90,7 @@ private:
     double m_duration = 0.0;
     double m_lastVideoPts = -1.0;
     std::atomic<double> m_seekTarget{-1.0};
+    double m_skipUntilPts = -1.0;
 
     // Audio
     int m_audioStreamIndex = -1;
