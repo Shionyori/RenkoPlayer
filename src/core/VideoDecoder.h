@@ -19,11 +19,11 @@ extern "C" {
 class VideoDecoder {
 public:
     struct Frame {
-        uint8_t* data[4];
-        int linesize[4];
-        int width;
-        int height;
-        double pts;
+        int width = 0;
+        int height = 0;
+        double pts = 0.0;
+        std::vector<uint8_t> rgba;
+        int linesize = 0;
     };
 
     VideoDecoder();
@@ -51,6 +51,9 @@ public:
     // Add error callback
     using ErrorCallback = std::function<void(const std::string&)>;
     void setErrorCallback(ErrorCallback callback);
+
+    using EndCallback = std::function<void()>;
+    void setEndCallback(EndCallback callback);
 
     bool isPlaying() const { return m_isPlaying; }
     bool isStopped() const { return m_stopThread; }
@@ -83,7 +86,9 @@ private:
     int m_height = 0;
     int m_targetWidth = 0;
     int m_targetHeight = 0;
+    mutable std::mutex m_durationMutex;
     double m_duration = 0.0;
+    double m_lastVideoPts = -1.0;
     std::atomic<double> m_seekTarget{-1.0};
 
     // Audio
@@ -97,6 +102,7 @@ private:
 
     FrameCallback m_onFrame;
     ErrorCallback m_onError;
+    EndCallback m_onEnd;
     std::mutex m_callbackMutex;
     std::mutex m_apiMutex;
 };

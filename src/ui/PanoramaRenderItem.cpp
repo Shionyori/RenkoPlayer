@@ -397,7 +397,7 @@ void PanoramaRenderItem::setVolume(qreal volume) {
 }
 
 void PanoramaRenderItem::updateFrame(const VideoDecoder::Frame& frame) {
-    QImage img(frame.data[0], frame.width, frame.height, frame.linesize[0], QImage::Format_RGBA8888);
+    QImage img(frame.rgba.data(), frame.width, frame.height, frame.linesize, QImage::Format_RGBA8888);
     // Deep copy because buffer is reused by decoder
     QImage copy = img.copy(); 
     

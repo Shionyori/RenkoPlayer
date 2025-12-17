@@ -223,7 +223,7 @@ void VideoRenderItem::updateFrame(const VideoDecoder::Frame& frame) {
     QMutexLocker lock(&m_frameMutex);
     // Deep copy the data to a QImage
     // Note: In a real high-perf player, you'd avoid this copy by using OpenGL textures directly
-    m_currentFrame = QImage(frame.data[0], frame.width, frame.height, frame.linesize[0], QImage::Format_RGBA8888).copy();
+    m_currentFrame = QImage(frame.rgba.data(), frame.width, frame.height, frame.linesize, QImage::Format_RGBA8888).copy();
     m_lastError.clear(); // Clear error on successful frame
     
     m_position = frame.pts * 1000;

@@ -167,10 +167,13 @@ bool VideoDecoder::open(const std::string& url) {
         return false;
     }
 
-    if (m_formatCtx->duration != AV_NOPTS_VALUE) {
-        m_duration = (double)m_formatCtx->duration / AV_TIME_BASE;
-    } else {
-        m_duration = 0.0;
+    {
+        std::lock_guard<std::mutex> lock(m_durationMutex);
+        if (m_formatCtx->duration != AV_NOPTS_VALUE) {
+            m_duration = (double)m_formatCtx->duration / AV_TIME_BASE;
+        } else {
+            m_duration = 0.0;
+        }
     }
 
     m_frame = av_frame_alloc();
@@ -190,22 +193,20 @@ void VideoDecoder::close() {
 }
 
 void VideoDecoder::play() {
-    std::lock_guard<std::mutex> lock(m_apiMutex);
-    if (m_stopThread) {
-        if (!m_url.empty()) {
-            // We can't call open() here because it locks m_apiMutex.
-            // We need to release lock or use internal open.
-            // But open() is complex.
-            // Let's just unlock and call open.
-            // But wait, m_url might change? No, we are inside play().
-            std::string url = m_url;
-            m_apiMutex.unlock();
-            open(url);
-            m_apiMutex.lock();
+    std::string urlToOpen;
+    {
+        std::lock_guard<std::mutex> lock(m_apiMutex);
+        if (!m_stopThread) {
+            m_isPlaying = true;
+            return;
         }
-    } else {
-        m_isPlaying = true;
+        if (m_url.empty()) {
+            return; // Nothing to play
+        }
+        urlToOpen = m_url;
+        // m_apiMutex release automatically here (end of scope)
     }
+    open(urlToOpen);
 }
 
 void VideoDecoder::pause() {
@@ -223,13 +224,17 @@ void VideoDecoder::stop() {
 }
 
 double VideoDecoder::getDuration() const {
-    // m_duration is atomic-ish (double read is usually atomic on x64 but not guaranteed)
-    // But it's only written in open() and freeResources().
+    std::lock_guard<std::mutex> lock(m_durationMutex);
     return m_duration;
 }
 
 void VideoDecoder::seek(double seconds) {
-    m_seekTarget = seconds;
+    if (seconds < 0.0 || (m_duration > 0.0 && seconds > m_duration)) return; // Out of bounds
+    {
+        std::lock_guard<std::mutex> lock(m_audioMutex);
+        m_audioBuffer.clear(); // Clear audio buffer on seek
+    }
+    m_seekTarget.store(seconds, std::memory_order_relaxed); // Set seek target
 }
 
 void VideoDecoder::setFrameCallback(FrameCallback callback) {
@@ -240,6 +245,11 @@ void VideoDecoder::setFrameCallback(FrameCallback callback) {
 void VideoDecoder::setErrorCallback(ErrorCallback callback) {
     std::lock_guard<std::mutex> lock(m_callbackMutex);
     m_onError = callback;
+}
+
+void VideoDecoder::setEndCallback(EndCallback callback) {
+    std::lock_guard<std::mutex> lock(m_callbackMutex);
+    m_onEnd = callback;
 }
 
 int VideoDecoder::getAudioData(uint8_t* data, int max_size) {
@@ -266,17 +276,19 @@ void VideoDecoder::decodeLoop() {
     uint8_t* buffer = nullptr;
 
     while (!m_stopThread) {
-        // Handle Seek
-        double target = m_seekTarget.exchange(-1.0);
+        // 处理 seek 请求
+        double target = m_seekTarget.exchange(-1.0, std::memory_order_relaxed);
         if (target >= 0.0) {
-            // Check for valid time_base
-            AVRational tb = m_formatCtx->streams[m_videoStreamIndex]->time_base;
-            if (tb.num != 0 && tb.den != 0) {
-                int64_t ts = target / av_q2d(tb);
-                if (av_seek_frame(m_formatCtx, m_videoStreamIndex, ts, AVSEEK_FLAG_BACKWARD) >= 0) {
-                    avcodec_flush_buffers(m_codecCtx);
+            int64_t ts = (int64_t)(target * AV_TIME_BASE); // 转为 AV_TIME_BASE 单位
+
+            // Seek 整个文件（所有流）
+            if (avformat_seek_file(m_formatCtx, -1, INT64_MIN, ts, INT64_MAX, 0) >= 0) {
+                avcodec_flush_buffers(m_codecCtx);
+                if (m_audioCodecCtx) {
+                    avcodec_flush_buffers(m_audioCodecCtx);
                 }
             }
+            m_lastVideoPts = -1.0; // 重置视频 PTS
         }
 
         if (!m_isPlaying) {
@@ -315,6 +327,14 @@ void VideoDecoder::decodeLoop() {
 
             int numBytes = av_image_get_buffer_size(AV_PIX_FMT_RGBA, currentDstWidth, currentDstHeight, 1);
             buffer = (uint8_t*)av_malloc(numBytes * sizeof(uint8_t));
+
+            if (!buffer) {
+                std::string errorMsg = "Failed to allocate output frame buffer";
+                std::cerr << errorMsg << std::endl;
+                std::lock_guard<std::mutex> lock(m_callbackMutex);
+                if (m_onError) m_onError(errorMsg);
+                break; // 退出 decodeLoop
+            }
             
             av_image_fill_arrays(pFrameRGB->data, pFrameRGB->linesize, buffer, AV_PIX_FMT_RGBA, currentDstWidth, currentDstHeight, 1);
 
@@ -327,8 +347,8 @@ void VideoDecoder::decodeLoop() {
                 std::cerr << errorMsg << std::endl;
                 std::lock_guard<std::mutex> lock(m_callbackMutex);
                 if (m_onError) m_onError(errorMsg);
-                // If we can't create context, we can't decode video properly.
-                // But we shouldn't crash. Just continue and hope it recovers or user stops.
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                continue; // 跳过本次解码
             }
         }
 
@@ -337,65 +357,116 @@ void VideoDecoder::decodeLoop() {
             if (m_packet->stream_index == m_videoStreamIndex) {
                 if (avcodec_send_packet(m_codecCtx, m_packet) == 0) {
                     while (avcodec_receive_frame(m_codecCtx, m_frame) == 0) {
-                        // Convert to RGB
+                        // Convert to RGBA
                         if (m_swsCtx) {
-                            sws_scale(m_swsCtx, (uint8_t const* const*)m_frame->data,
+                            sws_scale(m_swsCtx, (const uint8_t* const*)m_frame->data,
                                     m_frame->linesize, 0, m_height,
                                     pFrameRGB->data, pFrameRGB->linesize);
 
-                            // Notify callback
+                            // 1. 准备 Frame 数据
+                            Frame f;
+                            f.width = currentDstWidth;
+                            f.height = currentDstHeight;
+                            f.linesize = currentDstWidth * 4; // RGBA: 4 bytes/pixel
+
+                            // 2. 获取 PTS
+                            AVRational tb = m_formatCtx->streams[m_videoStreamIndex]->time_base;
+                            f.pts = (tb.num && tb.den) ? m_frame->best_effort_timestamp * av_q2d(tb) : 0.0;
+
+                            // 3. 深拷贝像素数据（逐行，避免 linesize padding 问题）
+                            int totalBytes = f.linesize * f.height;
+                            f.rgba.resize(totalBytes);
+                            for (int y = 0; y < f.height; ++y) {
+                                const uint8_t* src = pFrameRGB->data[0] + y * pFrameRGB->linesize[0];
+                                uint8_t* dst = f.rgba.data() + y * f.linesize;
+                                std::memcpy(dst, src, f.linesize); // 只拷有效像素（width * 4）
+                            }
+
+                            // 4. 回调（线程安全）
                             {
                                 std::lock_guard<std::mutex> lock(m_callbackMutex);
                                 if (m_onFrame) {
-                                    Frame f;
-                                    f.width = currentDstWidth;
-                                    f.height = currentDstHeight;
-                                    f.data[0] = pFrameRGB->data[0]; // Only need the first plane for RGBA
-                                    f.linesize[0] = pFrameRGB->linesize[0];
-                                    
-                                    AVRational tb = m_formatCtx->streams[m_videoStreamIndex]->time_base;
-                                    if (tb.num != 0 && tb.den != 0) {
-                                         f.pts = m_frame->best_effort_timestamp * av_q2d(tb);
-                                    } else {
-                                         f.pts = 0;
-                                    }
                                     m_onFrame(f);
                                 }
                             }
+
+                            // 5. 基于 PTS 的简单同步（替代固定 33ms）
+                            if (m_lastVideoPts >= 0.0 && f.pts > m_lastVideoPts) {
+                                double delay = f.pts - m_lastVideoPts;
+                                int64_t sleepMs = static_cast<int64_t>(delay * 1000);
+                                if (sleepMs > 0 && sleepMs < 500) { // 防异常值
+                                    std::this_thread::sleep_for(std::chrono::milliseconds(sleepMs));
+                                }
+                            }
+                            m_lastVideoPts = f.pts;
                         }
-                        
-                        // Simple sync (naive) - assume 30fps roughly or just pump as fast as possible for now
-                        // In a real player, you sync to PTS
-                        std::this_thread::sleep_for(std::chrono::milliseconds(33));
                     }
                 }
             } else if (m_packet->stream_index == m_audioStreamIndex) {
                 if (avcodec_send_packet(m_audioCodecCtx, m_packet) == 0) {
                     while (avcodec_receive_frame(m_audioCodecCtx, m_frame) == 0) {
                         if (m_swrCtx) {
-                            // Resample
-                            int dst_samples = av_rescale_rnd(swr_get_delay(m_swrCtx, m_audioCodecCtx->sample_rate) +
-                                            m_frame->nb_samples, 44100, m_audioCodecCtx->sample_rate, AV_ROUND_UP);
-                            
-                            uint8_t* output_buffer = nullptr;
-                            av_samples_alloc(&output_buffer, nullptr, 2, dst_samples, AV_SAMPLE_FMT_S16, 0);
-                            
-                            int converted_samples = swr_convert(m_swrCtx, &output_buffer, dst_samples,
-                                            (const uint8_t**)m_frame->data, m_frame->nb_samples);
-                            
-                            if (converted_samples > 0) {
-                                int buffer_size = av_samples_get_buffer_size(nullptr, 2, converted_samples, AV_SAMPLE_FMT_S16, 1);
-                                
+                            // 1. 先检查音频缓冲区是否过大（避免 OOM）
+                            {
                                 std::lock_guard<std::mutex> lock(m_audioMutex);
-                                // Limit buffer size to avoid OOM if audio is faster than playback
-                                if (m_audioBuffer.size() < 1024 * 1024 * 10) { // 10MB limit
-                                    size_t current_size = m_audioBuffer.size();
-                                    m_audioBuffer.resize(current_size + buffer_size);
-                                    memcpy(m_audioBuffer.data() + current_size, output_buffer, buffer_size);
+                                if (m_audioBuffer.size() > 5 * 1024 * 1024) { // 5MB threshold
+                                    continue; // 跳过重采样
                                 }
                             }
-                            
-                            if (output_buffer) av_freep(&output_buffer);
+
+                            // 2. 计算输出样本数
+                            int64_t delay = swr_get_delay(m_swrCtx, m_audioCodecCtx->sample_rate);
+                            int dst_samples = (int)av_rescale_rnd(
+                                delay + m_frame->nb_samples,
+                                44100,
+                                m_audioCodecCtx->sample_rate,
+                                AV_ROUND_UP
+                            );
+
+                            if (dst_samples <= 0) {
+                                continue;
+                            }
+
+                            // 3. 分配输出缓冲区
+                            uint8_t* output_buffer = nullptr;
+                            int ret = av_samples_alloc(
+                                &output_buffer, nullptr,
+                                2,
+                                dst_samples,
+                                AV_SAMPLE_FMT_S16,
+                                0
+                            );
+                            if (ret < 0) {
+                                std::cerr << "av_samples_alloc failed" << std::endl;
+                                continue;
+                            }
+
+                            // 4. 重采样
+                            int converted_samples = swr_convert(
+                                m_swrCtx,
+                                &output_buffer,
+                                dst_samples,
+                                (const uint8_t**)m_frame->data,
+                                m_frame->nb_samples
+                            );
+
+                            if (converted_samples > 0) {
+                                int buffer_size = av_samples_get_buffer_size(
+                                    nullptr, 2, converted_samples, AV_SAMPLE_FMT_S16, 1
+                                );
+
+                                // 5. 写入音频缓冲区
+                                std::lock_guard<std::mutex> lock(m_audioMutex);
+                                if (m_audioBuffer.size() + buffer_size <= 10 * 1024 * 1024) { // 硬上限 10MB
+                                    size_t old_size = m_audioBuffer.size();
+                                    m_audioBuffer.resize(old_size + buffer_size);
+                                    memcpy(m_audioBuffer.data() + old_size, output_buffer, buffer_size);
+                                }
+                                // 如果超过 10MB，静默丢弃（避免 OOM）
+                            }
+
+                            // 6. 释放输出缓冲区（必须）
+                            av_freep(&output_buffer);
                         }
                     }
                 }
@@ -403,11 +474,12 @@ void VideoDecoder::decodeLoop() {
             av_packet_unref(m_packet);
         } else {
             if (readRet == AVERROR_EOF) {
-                // End of stream, loop or stop? For now just wait
+                {
+                    std::lock_guard<std::mutex> lock(m_callbackMutex);
+                    if(m_onEnd) m_onEnd();
+                }
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            } else {
-                // Error
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                continue;
             }
         }
     }
