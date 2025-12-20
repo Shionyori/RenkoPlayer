@@ -21,6 +21,8 @@ QtObject {
 
     readonly property color border: "#E0E0E0"      // Very Subtle Border
     readonly property color divider: "#EEEEEE"
+    
+    readonly property color selectionLight: "#E0E0E0" // Light Gray for selection
 
     readonly property color success: "#81C784"     // Pastel Green
     readonly property color error: "#E57373"       // Pastel Red

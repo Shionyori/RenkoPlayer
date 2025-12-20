@@ -1,0 +1,47 @@
+import QtQuick
+import QtQuick.Controls
+import QtQuick.Layouts
+import RenkoUI
+
+RDialog {
+    id: control
+    
+    property string text: ""
+    property string informativeText: ""
+    
+    // Default width constraint
+    width: 400
+    
+    standardButtons: Dialog.Ok
+
+    Item {
+        width: parent.width
+        height: layout.implicitHeight + Theme.spacingLarge * 2
+
+        ColumnLayout {
+            id: layout
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.margins: Theme.spacingLarge
+            spacing: Theme.spacingNormal
+            
+            RLabel {
+            text: control.text
+            font.pixelSize: Theme.fontSizeNormal
+            font.bold: true
+            wrapMode: Text.Wrap
+            Layout.fillWidth: true
+            visible: text !== ""
+        }
+        
+        RLabel {
+            text: control.informativeText
+            wrapMode: Text.Wrap
+            Layout.fillWidth: true
+            visible: text !== ""
+            color: Theme.text
+            opacity: 0.8
+        }
+    }
+}}

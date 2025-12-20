@@ -46,6 +46,9 @@ qt_add_qml_module(RenkoUI
         qml/RenkoUI/Theme.qml
         
         qml/RenkoUI/RWindow.qml
+        qml/RenkoUI/RDialog.qml
+        qml/RenkoUI/RMessageDialog.qml
+        qml/RenkoUI/RFileDialog.qml
 
         qml/RenkoUI/RButton.qml
         qml/RenkoUI/RToolButton.qml
@@ -72,6 +75,7 @@ qt_add_qml_module(RenkoPlayer
         qml/main.qml
     RESOURCES
         assets/icons/app.ico
+        assets/icons/app.png
         assets/icons/play.svg
         assets/icons/pause.svg
         assets/icons/stop.svg

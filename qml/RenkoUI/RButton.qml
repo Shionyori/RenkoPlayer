@@ -8,6 +8,12 @@ Button {
     property color customBackgroundColor: Theme.surface
     property color customAccentColor: Theme.accent
     property bool isIconOnly: false
+    property string tooltip: ""
+    ToolTip.text: tooltip
+
+    ToolTip.visible: hovered && tooltip.length > 0
+    ToolTip.delay: 500
+    ToolTip.timeout: 5000
 
     font.family: Theme.fontFamily
     font.pixelSize: Theme.fontSizeNormal
@@ -16,7 +22,7 @@ Button {
     palette.buttonText: control.highlighted ? Theme.textInverse : Theme.text
 
     background: Rectangle {
-        implicitWidth: control.isIconOnly ? 36 : 100
+        implicitWidth: Math.max(control.isIconOnly ? 36 : 80, control.contentItem.implicitWidth + 32)
         implicitHeight: 36
         radius: Theme.radiusNormal
         color: {
@@ -25,8 +31,8 @@ Button {
             if (control.hovered) return control.highlighted ? Qt.lighter(control.customAccentColor, 1.1) : Theme.surfaceHighlight
             return control.highlighted ? control.customAccentColor : control.customBackgroundColor
         }
-        border.color: control.highlighted ? "transparent" : Theme.border
-        border.width: control.highlighted ? 0 : 1
+        border.color: (control.highlighted || control.flat) ? "transparent" : Theme.border
+        border.width: (control.highlighted || control.flat) ? 0 : 1
         
         Behavior on color { ColorAnimation { duration: 100 } }
     }

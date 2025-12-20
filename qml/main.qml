@@ -1,8 +1,6 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import QtQuick.Dialogs
-import Qt.labs.folderlistmodel
 import RenkoPlayer 1.0
 import RenkoUI 1.0
 
@@ -41,8 +39,9 @@ RWindow {
         }
     }
 
-    FileDialog {
+    RFileDialog {
         id: fileDialog
+        iconSource: "qrc:/qt/qml/RenkoPlayer/assets/icons/app.png"
         title: "Please choose a video file"
         nameFilters: ["Video files (*.mp4 *.avi *.mkv *.mov *.flv *.webm)", "All files (*)"]
         onAccepted: {
@@ -53,11 +52,11 @@ RWindow {
         }
     }
 
-    MessageDialog {
+    RMessageDialog {
         id: aboutDialog
+        iconSource: "qrc:/qt/qml/RenkoPlayer/assets/icons/app.png"
         title: "About RenkoPlayer"
         text: "RenkoPlayer v1.0\n\nA modern C++ video player using Qt 6 and FFmpeg.\n\nCreated by Shionyori."
-        buttons: MessageDialog.Ok
     }
 
     ColumnLayout {

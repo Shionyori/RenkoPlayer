@@ -5,6 +5,13 @@ import RenkoUI
 ToolButton {
     id: control
 
+    property string tooltip: ""
+    ToolTip.text: tooltip
+
+    ToolTip.visible: hovered && tooltip.length > 0
+    ToolTip.delay: 500
+    ToolTip.timeout: 5000
+
     font.family: Theme.fontFamily
     font.pixelSize: Theme.fontSizeNormal
 
