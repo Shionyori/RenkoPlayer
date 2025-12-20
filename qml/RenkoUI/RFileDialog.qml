@@ -48,8 +48,21 @@ RDialog {
             var cleanPath = currentPath.replace(/\/+$/, "")
             selectedFile = "file:///" + cleanPath + "/" + fileNameInput.trim()
         }
-        if (selectedFile) {
+        else if (selectedFile) {
             var dir = selectedFile.toString().replace(/[^\\/]*$/, "")
+            settings.lastPath = dir
+        }
+        settings.lastFilter = selectedNameFilter
+
+        if (selectedFile) {
+            var urlStr = selectedFile.toString()
+            var localPath = urlStr
+            if (urlStr.startsWith("file:///")) {
+                localPath = urlStr.slice(8)
+            } else if (urlStr.startsWith("file://")) {
+                 localPath = urlStr.slice(7)
+            }
+            var dir = localPath.replace(/[^\\/]*$/, "")
             settings.lastPath = dir
         }
         settings.lastFilter = selectedNameFilter
@@ -93,17 +106,25 @@ RDialog {
         return ["*"]
     }
 
-    function navigateTo(path) {
-        var p = path.toString()
-        if (p.startsWith("file:///")) {
-            p = p.slice(8)
-        } else if (p.startsWith("file://")) {
-             p = p.slice(7)
+    function _cleanPath(path) {
+        var p = path.toString().replace(/\\/g, "/")
+        if (p.startsWith("file:///")) p = p.slice(8)
+        else if (p.startsWith("file://")) p = p.slice(7)
+        
+        // Uppercase drive letter for Windows consistency
+        if (p.length > 1 && p[1] === ':') {
+            p = p[0].toUpperCase() + p.slice(1)
         }
-        // Normalize backslashes to forward slashes for Windows paths
-        p = p.replace(/\\/g, "/")
-        currentPath = p
+        return p
+    }
+
+    function navigateTo(path) {
+        currentPath = _cleanPath(path)
         fileNameInput = ""
+    }
+
+    function _ensureFileUrl(path) {
+        return "file:///" + _cleanPath(path)
     }
 
     // === UI ===
@@ -279,7 +300,7 @@ RDialog {
 
                         if (control.fileMode !== control.openFiles) {
                             selectedIndexes = [idx]
-                            control.selectedFile = folderModel.get(idx, "filePath")
+                            control.selectedFile = control._ensureFileUrl(folderModel.get(idx, "filePath"))
                             if (!isDir) control.fileNameInput = fName
                             return
                         }
@@ -290,7 +311,7 @@ RDialog {
                             if (!isSelected(idx)) selectedIndexes.push(idx)
                         }
                         if (selectedIndexes.length > 0) {
-                            control.selectedFile = folderModel.get(selectedIndexes[0], "filePath")
+                            control.selectedFile = control._ensureFileUrl(folderModel.get(selectedIndexes[0], "filePath"))
                             if (selectedIndexes.length === 1 && !folderModel.get(selectedIndexes[0], "fileIsDir")) {
                                 control.fileNameInput = folderModel.get(selectedIndexes[0], "fileName")
                             }
@@ -349,10 +370,14 @@ RDialog {
 
                         onDoubleClicked: {
                             if (!fileIsDir) {
-                                control.selectedFile = filePath
+                                control.selectedFile = control._ensureFileUrl(filePath)
                                 control.accept()
                             } else {
-                                control.navigateTo(fileURL)
+                                var localPath = filePath.toString()
+                                if (localPath.startsWith("file:///")) {
+                                    localPath = localPath.slice(8)
+                                }
+                                control.navigateTo(localPath)
                             }
                         }
                     }
@@ -406,7 +431,7 @@ RDialog {
                     // If text field has content but no file selected in list, try to use text field
                     if (!control.selectedFile && saveField.text.trim() !== "") {
                          var path = currentPath + (currentPath.endsWith("/") ? "" : "/") + saveField.text.trim()
-                         control.selectedFile = path
+                         control.selectedFile = control._ensureFileUrl(path)
                     }
                     control.accept()
                 }
