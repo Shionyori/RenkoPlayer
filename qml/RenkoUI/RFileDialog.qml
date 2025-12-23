@@ -16,7 +16,7 @@ RDialog {
     // === Public API ===
     property var nameFilters: ["All files (*)"]
     property string selectedNameFilter: nameFilters[0]
-    property int fileMode: RFileDialog.openFile
+    property int fileMode: openFile
     property url selectedFile
     property list<url> selectedFiles
 
@@ -213,25 +213,32 @@ RDialog {
             }
 
             RButton {
-                text: "H"
+                Layout.preferredWidth: 36
+                Layout.preferredHeight: 36
+                icon.source: checked ? "qrc:/qt/qml/RenkoUI/assets/icons/eye.svg" : "qrc:/qt/qml/RenkoUI/assets/icons/eye-off.svg"
+                icon.width: 20
+                icon.height: 20
                 isIconOnly: true
                 checkable: true
                 checked: folderModel.showHidden
                 onCheckedChanged: folderModel.showHidden = checked
-                tooltip: qsTr("Show Hidden Files")
+                tooltip: checked ? qsTr("Hide Hidden Files") : qsTr("Show Hidden Files")
                 
                 // Visual indicator for checked state
                 customAccentColor: checked ? Theme.accent : Theme.surfaceHighlight
             }
             
             RButton {
-                text: "R"
+                Layout.preferredWidth: 36
+                Layout.preferredHeight: 36
+                icon.source: "qrc:/qt/qml/RenkoUI/assets/icons/refresh.svg"
+                icon.width: 20
+                icon.height: 20
                 isIconOnly: true
                 tooltip: qsTr("Refresh")
                 onClicked: {
-                    var old = folderModel.folder
                     folderModel.folder = ""
-                    folderModel.folder = old
+                    folderModel.folder = Qt.binding(function() { return "file:///" + currentPath })
                 }
             }
         }

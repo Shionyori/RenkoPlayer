@@ -65,6 +65,10 @@ qt_add_qml_module(RenkoUI
         qml/RenkoUI/RProgressBar.qml
         qml/RenkoUI/RSlider.qml
         qml/RenkoUI/RScrollBar.qml
+    RESOURCES
+        assets/icons/eye.svg
+        assets/icons/eye-off.svg
+        assets/icons/refresh.svg
 )
 
 # QML Module Definition for Main App

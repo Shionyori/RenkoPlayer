@@ -21,6 +21,10 @@ int main(int argc, char *argv[]) {
     // Disable native dialogs to prevent COM/Shell errors with OpenGL backend on Windows
     QCoreApplication::setAttribute(Qt::AA_DontUseNativeDialogs);
 
+    QCoreApplication::setOrganizationName("RenkoPlayer");
+    QCoreApplication::setOrganizationDomain("renkoplayer.com");
+    QCoreApplication::setApplicationName("RenkoPlayer");
+
     QGuiApplication app(argc, argv);
 
     // Explicitly set Fusion style to avoid default windows style
