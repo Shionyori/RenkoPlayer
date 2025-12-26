@@ -64,6 +64,9 @@ public:
     void setTargetResolution(int width, int height);
 
 private:
+    static int interrupt_cb(void* ctx);
+    bool checkTimeout() const;
+
     void decodeLoop();
     void freeResources();
 
@@ -71,6 +74,10 @@ private:
     std::atomic<bool> m_isPlaying{false};
     std::atomic<bool> m_stopThread{false};
     std::thread m_decodeThread;
+
+    // Timeout handling
+    std::atomic<int64_t> m_lastPacketTime{0};
+    const int64_t m_timeoutMicroseconds = 30000000; // 30 seconds
 
     // FFmpeg context
     AVFormatContext* m_formatCtx = nullptr;

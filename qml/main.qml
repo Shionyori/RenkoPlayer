@@ -7,6 +7,8 @@ import RenkoUI 1.0
 RWindow {
     width: 1280
     height: 720
+    minimumWidth: 720
+    minimumHeight: 480
     visible: true
     title: "RenkoPlayer - Modern C++ Player"
     color: Theme.background

@@ -3,7 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import Qt5Compat.GraphicalEffects
 import Qt.labs.folderlistmodel
-import Qt.labs.settings
+import QtCore
 import Qt.labs.platform as Platform
 import RenkoUI 1.0
 

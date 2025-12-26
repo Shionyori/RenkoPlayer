@@ -56,14 +56,24 @@ bool VideoDecoder::open(const std::string& url) {
     }
     freeResources();
 
+    // Reset stop flag for new playback
+    m_stopThread = false;
+
     m_url = url;
 
     m_formatCtx = avformat_alloc_context();
     
+    // Setup interrupt callback
+    m_lastPacketTime = av_gettime();
+    m_formatCtx->interrupt_callback.callback = interrupt_cb;
+    m_formatCtx->interrupt_callback.opaque = this;
+
     AVDictionary* options = nullptr;
-    // Set timeout to 5 seconds (in microseconds)
-    av_dict_set(&options, "rw_timeout", "5000000", 0);
-    av_dict_set(&options, "stimeout", "5000000", 0);
+    // Set timeout to 30 seconds (in microseconds) for protocols that support it
+    av_dict_set(&options, "rw_timeout", "30000000", 0);
+    av_dict_set(&options, "stimeout", "30000000", 0);
+    // Increase buffer size for HTTP
+    av_dict_set(&options, "buffer_size", "1024000", 0);
     
     int ret = avformat_open_input(&m_formatCtx, url.c_str(), nullptr, &options);
     av_dict_free(&options);
@@ -189,7 +199,7 @@ bool VideoDecoder::open(const std::string& url) {
     m_packet = av_packet_alloc();
 
     // Start decoding thread
-    m_stopThread = false;
+    // m_stopThread is already false
     m_isPlaying = true;
     m_seekTarget = -1.0;
     m_decodeThread = std::thread(&VideoDecoder::decodeLoop, this);
@@ -272,6 +282,21 @@ int VideoDecoder::getAudioData(uint8_t* data, int max_size) {
     m_audioBuffer.erase(m_audioBuffer.begin(), m_audioBuffer.begin() + to_copy);
     
     return to_copy;
+}
+
+int VideoDecoder::interrupt_cb(void* ctx) {
+    VideoDecoder* decoder = static_cast<VideoDecoder*>(ctx);
+    return decoder->checkTimeout() ? 1 : 0;
+}
+
+bool VideoDecoder::checkTimeout() const {
+    if (m_stopThread) return true;
+    
+    int64_t currentTime = av_gettime();
+    if (currentTime - m_lastPacketTime > m_timeoutMicroseconds) {
+        return true;
+    }
+    return false;
 }
 
 void VideoDecoder::decodeLoop() {
@@ -373,6 +398,12 @@ void VideoDecoder::decodeLoop() {
         }
 
         int readRet = av_read_frame(m_formatCtx, m_packet);
+        
+        // Update last packet time on successful read
+        if (readRet >= 0) {
+            m_lastPacketTime = av_gettime();
+        }
+
         if (readRet >= 0) {
             if (m_packet->stream_index == m_videoStreamIndex) {
                 if (avcodec_send_packet(m_codecCtx, m_packet) == 0) {
@@ -517,6 +548,24 @@ void VideoDecoder::decodeLoop() {
                 }
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 continue;
+            } else {
+                // Handle other errors (e.g. timeout, network error)
+                char errbuf[1024];
+                av_strerror(readRet, errbuf, sizeof(errbuf));
+                std::cerr << "av_read_frame error: " << errbuf << std::endl;
+                
+                // If it's a timeout or critical error, we might want to stop or reconnect
+                // For now, just sleep to avoid busy loop
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                
+                // If timeout detected by our callback, we should probably stop
+                if (checkTimeout()) {
+                     std::string errorMsg = "Connection timed out";
+                     std::cerr << errorMsg << std::endl;
+                     std::lock_guard<std::mutex> lock(m_callbackMutex);
+                     if (m_onError) m_onError(errorMsg);
+                     break; // Exit loop
+                }
             }
         }
     }

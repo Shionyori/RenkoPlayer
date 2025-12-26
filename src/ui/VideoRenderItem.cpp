@@ -5,7 +5,8 @@
 
 VideoRenderItem::VideoRenderItem(QQuickItem* parent) : QQuickPaintedItem(parent) {
     // Optimize for video
-    // setRenderTarget(QQuickPaintedItem::FramebufferObject);
+    setRenderTarget(QQuickPaintedItem::FramebufferObject);
+    setOpaquePainting(true);
     
     m_decoder.setFrameCallback([this](const VideoDecoder::Frame& frame) {
         this->updateFrame(frame);
@@ -253,12 +254,27 @@ void VideoRenderItem::handleError(const std::string& message) {
 
 void VideoRenderItem::paint(QPainter* painter) {
     QMutexLocker lock(&m_frameMutex);
+    
+    // Fill background with black to handle aspect ratio borders
+    painter->fillRect(0, 0, width(), height(), Qt::black);
+
     if (!m_currentFrame.isNull()) {
-        // Scale to fit the item
-        QRectF targetRect(0, 0, width(), height());
+        // Calculate aspect ratio to fit the item while preserving ratio
+        float rw = (float)width() / m_currentFrame.width();
+        float rh = (float)height() / m_currentFrame.height();
+        float ratio = std::min(rw, rh);
+        
+        float newW = m_currentFrame.width() * ratio;
+        float newH = m_currentFrame.height() * ratio;
+        
+        float x = (width() - newW) / 2.0f;
+        float y = (height() - newH) / 2.0f;
+        
+        QRectF targetRect(x, y, newW, newH);
+        
+        painter->setRenderHint(QPainter::SmoothPixmapTransform);
         painter->drawImage(targetRect, m_currentFrame);
     } else {
-        painter->fillRect(0, 0, width(), height(), Qt::black);
         painter->setPen(Qt::white);
         
         if (!m_lastError.isEmpty()) {
