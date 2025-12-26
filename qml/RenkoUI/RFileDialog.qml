@@ -9,8 +9,8 @@ import RenkoUI 1.0
 
 RDialog {
     id: control
-    width: 800
-    height: 560
+    width: Math.min(800, parent ? parent.width * 0.9 : 800)
+    height: Math.min(560, parent ? parent.height * 0.9 : 560)
     title: qsTr("Open File")
 
     // === Public API ===

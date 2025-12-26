@@ -103,9 +103,19 @@ Popup {
                     clickPos = Qt.point(mouse.x, mouse.y) 
                 }
                 onPositionChanged: (mouse) => {
-                    var delta = Qt.point(mouse.x - clickPos.x, mouse.y - clickPos.y)
-                    control.x += delta.x
-                    control.y += delta.y
+                    var deltaX = mouse.x - clickPos.x
+                    var deltaY = mouse.y - clickPos.y
+                    
+                    var newX = control.x + deltaX
+                    var newY = control.y + deltaY
+                    
+                    if (control.parent) {
+                        newX = Math.max(0, Math.min(newX, control.parent.width - control.width))
+                        newY = Math.max(0, Math.min(newY, control.parent.height - control.height))
+                    }
+                    
+                    control.x = newX
+                    control.y = newY
                 }
             }
             

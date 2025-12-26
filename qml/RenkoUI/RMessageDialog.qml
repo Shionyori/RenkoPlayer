@@ -10,7 +10,7 @@ RDialog {
     property string informativeText: ""
     
     // Default width constraint
-    width: 400
+    width: Math.min(400, parent ? parent.width * 0.9 : 400)
     
     standardButtons: Dialog.Ok
 
