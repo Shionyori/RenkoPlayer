@@ -59,7 +59,15 @@ bool VideoDecoder::open(const std::string& url) {
     m_url = url;
 
     m_formatCtx = avformat_alloc_context();
-    int ret = avformat_open_input(&m_formatCtx, url.c_str(), nullptr, nullptr);
+    
+    AVDictionary* options = nullptr;
+    // Set timeout to 5 seconds (in microseconds)
+    av_dict_set(&options, "rw_timeout", "5000000", 0);
+    av_dict_set(&options, "stimeout", "5000000", 0);
+    
+    int ret = avformat_open_input(&m_formatCtx, url.c_str(), nullptr, &options);
+    av_dict_free(&options);
+    
     if (ret != 0) {
         char errbuf[1024];
         av_strerror(ret, errbuf, sizeof(errbuf));

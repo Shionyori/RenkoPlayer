@@ -70,6 +70,13 @@ public:
     void synchronize(QQuickFramebufferObject *item) override {
         PanoramaRenderItem *pItem = static_cast<PanoramaRenderItem*>(item);
         
+        if (pItem->takeResetTexture()) {
+            if (m_texture) {
+                delete m_texture;
+                m_texture = nullptr;
+            }
+        }
+        
         m_yaw = pItem->yaw();
         m_pitch = pItem->pitch();
         m_fov = pItem->fov();
@@ -225,6 +232,7 @@ void PanoramaRenderItem::setSource(const QString& source) {
         QMutexLocker lock(&m_frameMutex);
         m_currentFrame = QImage();
         m_newFrameAvailable = false;
+        m_resetTexture = true;
     }
     
     if (!m_source.isEmpty()) {
@@ -275,6 +283,14 @@ void PanoramaRenderItem::setSource(const QString& source) {
                 });
             }
         });
+    } else {
+        m_decoder.stop();
+        if (m_audioSink) {
+            m_audioSink->stop();
+            delete m_audioSink;
+            m_audioSink = nullptr;
+        }
+        m_audioTimer->stop();
     }
 }
 
@@ -418,6 +434,15 @@ QImage PanoramaRenderItem::getFrame() {
     QMutexLocker lock(&m_frameMutex);
     m_newFrameAvailable = false;
     return m_currentFrame;
+}
+
+bool PanoramaRenderItem::takeResetTexture() {
+    QMutexLocker lock(&m_frameMutex);
+    if (m_resetTexture) {
+        m_resetTexture = false;
+        return true;
+    }
+    return false;
 }
 
 void PanoramaRenderItem::handleError(const std::string& message) {

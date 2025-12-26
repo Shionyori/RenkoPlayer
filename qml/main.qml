@@ -47,8 +47,16 @@ RWindow {
         onAccepted: {
             var path = selectedFile.toString()
             urlField.text = path
-            videoPlayer.source = path
-            videoPlayer.play()
+            
+            if (isPanorama) {
+                videoPlayer.source = ""
+                panoramaPlayer.source = path
+                panoramaPlayer.play()
+            } else {
+                panoramaPlayer.source = ""
+                videoPlayer.source = path
+                videoPlayer.play()
+            }
         }
     }
 
@@ -172,9 +180,11 @@ RWindow {
                     RToolButton {
                         onClicked: {
                             if (isPanorama) {
+                                videoPlayer.source = ""
                                 panoramaPlayer.source = urlField.text
                                 panoramaPlayer.play()
                             } else {
+                                panoramaPlayer.source = ""
                                 videoPlayer.source = urlField.text
                                 videoPlayer.play()
                             }
@@ -255,11 +265,11 @@ RWindow {
                         text: "360° Mode"
                         checked: isPanorama
                         onCheckedChanged: {
-                            var currentPos = isPanorama ? videoPlayer.position : panoramaPlayer.position
-                            var currentSrc = isPanorama ? videoPlayer.source : panoramaPlayer.source
+                            var currentPos = isPanorama ? panoramaPlayer.position : videoPlayer.position
+                            var currentSrc = isPanorama ? panoramaPlayer.source : videoPlayer.source
                             
-                            if (isPanorama) videoPlayer.stop()
-                            else panoramaPlayer.stop()
+                            if (isPanorama) panoramaPlayer.source = ""
+                            else videoPlayer.source = ""
                             
                             isPanorama = checked
                             

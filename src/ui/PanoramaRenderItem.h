@@ -55,6 +55,7 @@ public:
     // Internal use for Renderer
     QImage getFrame();
     bool hasNewFrame() const { return m_newFrameAvailable; }
+    bool takeResetTexture();
 
 signals:
     void sourceChanged();
@@ -80,6 +81,7 @@ private:
     VideoDecoder m_decoder;
     QImage m_currentFrame;
     bool m_newFrameAvailable = false;
+    bool m_resetTexture = false;
     
     qint64 m_duration = 0;
     qint64 m_position = 0;

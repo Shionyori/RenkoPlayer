@@ -106,6 +106,14 @@ void VideoRenderItem::setSource(const QString& source) {
                 });
             }
         });
+    } else {
+        m_decoder.stop();
+        if (m_audioSink) {
+            m_audioSink->stop();
+            delete m_audioSink;
+            m_audioSink = nullptr;
+        }
+        m_audioTimer->stop();
     }
 }
 
