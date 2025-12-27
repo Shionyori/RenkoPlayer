@@ -73,6 +73,12 @@ RenkoPlayer/
 │   ├── core/          # FFmpeg 解码核心逻辑
 │   ├── ui/            # Qt 界面相关代码
 │   └── main.cpp       # 程序入口
+├── libs/
+│   └── RenkoUI/       # 自定义 QML 组件库
+│       ├── assets/
+│       ├── qml/
+│       ├── src/
+│       └── CMakeLists.txt
 ├── docs/
 │   ├── demo/          # 演示图片与视频
 │   └── dev_logs/      # 开发日志与故障排查记录
