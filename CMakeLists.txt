@@ -35,41 +35,8 @@ qt_add_executable(RenkoPlayer
     assets/RenkoPlayer.rc
 )
 
-# Define RenkoUI Module (Reusable UI Library)
-qt_add_library(RenkoUI STATIC)
-set_source_files_properties(qml/RenkoUI/Theme.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
-
-qt_add_qml_module(RenkoUI
-    URI RenkoUI
-    VERSION 1.0
-    QML_FILES
-        qml/RenkoUI/Theme.qml
-        
-        qml/RenkoUI/RWindow.qml
-        qml/RenkoUI/RDialog.qml
-        qml/RenkoUI/RMessageDialog.qml
-        qml/RenkoUI/RFileDialog.qml
-
-        qml/RenkoUI/RButton.qml
-        qml/RenkoUI/RToolButton.qml
-        qml/RenkoUI/RSwitch.qml
-        qml/RenkoUI/RCheckBox.qml
-        qml/RenkoUI/RComboBox.qml
-
-        qml/RenkoUI/RPanel.qml
-        qml/RenkoUI/RLabel.qml
-        qml/RenkoUI/RTextField.qml
-        qml/RenkoUI/RMenu.qml
-        qml/RenkoUI/RMenuBar.qml
-        qml/RenkoUI/RMenuItem.qml
-        qml/RenkoUI/RProgressBar.qml
-        qml/RenkoUI/RSlider.qml
-        qml/RenkoUI/RScrollBar.qml
-    RESOURCES
-        assets/icons/eye.svg
-        assets/icons/eye-off.svg
-        assets/icons/refresh.svg
-)
+# Add RenkoUI Library
+add_subdirectory(libs/RenkoUI)
 
 # QML Module Definition for Main App
 qt_add_qml_module(RenkoPlayer
@@ -88,6 +55,7 @@ qt_add_qml_module(RenkoPlayer
 # Link Libraries
 target_link_libraries(RenkoPlayer
     PRIVATE
+    RenkoUI
     RenkoUIplugin
     Qt6::Core
     Qt6::Gui

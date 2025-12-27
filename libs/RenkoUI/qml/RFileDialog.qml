@@ -92,10 +92,24 @@ RDialog {
     // === Model ===
     FolderListModel {
         id: folderModel
-        folder: "file:///" + currentPath
+        folder: currentPath ? "file:///" + currentPath : ""
         showDirsFirst: true
         showDotAndDotDot: false
         nameFilters: control._parseNameFilter(selectedNameFilter)
+    }
+
+    ListModel {
+        id: drivesModel
+    }
+
+    onCurrentPathChanged: {
+        if (currentPath === "") {
+            drivesModel.clear()
+            var drives = FileSystemHelper.getDrives()
+            for (var i = 0; i < drives.length; i++) {
+                drivesModel.append(drives[i])
+            }
+        }
     }
 
     function _parseNameFilter(filter) {
@@ -238,7 +252,7 @@ RDialog {
                 tooltip: qsTr("Refresh")
                 onClicked: {
                     folderModel.folder = ""
-                    folderModel.folder = Qt.binding(function() { return "file:///" + currentPath })
+                    folderModel.folder = Qt.binding(function() { return currentPath ? "file:///" + currentPath : "" })
                 }
             }
         }
@@ -288,7 +302,7 @@ RDialog {
                     id: fileListView
                     anchors.fill: parent
                     clip: true
-                    model: folderModel
+                    model: currentPath === "" ? drivesModel : folderModel
                     keyNavigationEnabled: true
 
                     property var selectedIndexes: []
@@ -301,13 +315,22 @@ RDialog {
                         selectedIndexes = []
                     }
 
+                    function getModelProperty(idx, prop) {
+                        if (currentPath === "") {
+                            return drivesModel.get(idx)[prop]
+                        } else {
+                            return folderModel.get(idx, prop)
+                        }
+                    }
+
                     function toggleSelection(idx, multi) {
-                        var isDir = folderModel.get(idx, "fileIsDir")
-                        var fName = folderModel.get(idx, "fileName")
+                        var isDir = getModelProperty(idx, "fileIsDir")
+                        var fName = getModelProperty(idx, "fileName")
+                        var fPath = getModelProperty(idx, "filePath")
 
                         if (control.fileMode !== control.openFiles) {
                             selectedIndexes = [idx]
-                            control.selectedFile = control._ensureFileUrl(folderModel.get(idx, "filePath"))
+                            control.selectedFile = control._ensureFileUrl(fPath)
                             if (!isDir) control.fileNameInput = fName
                             return
                         }
@@ -318,9 +341,9 @@ RDialog {
                             if (!isSelected(idx)) selectedIndexes.push(idx)
                         }
                         if (selectedIndexes.length > 0) {
-                            control.selectedFile = control._ensureFileUrl(folderModel.get(selectedIndexes[0], "filePath"))
-                            if (selectedIndexes.length === 1 && !folderModel.get(selectedIndexes[0], "fileIsDir")) {
-                                control.fileNameInput = folderModel.get(selectedIndexes[0], "fileName")
+                            control.selectedFile = control._ensureFileUrl(getModelProperty(selectedIndexes[0], "filePath"))
+                            if (selectedIndexes.length === 1 && !getModelProperty(selectedIndexes[0], "fileIsDir")) {
+                                control.fileNameInput = getModelProperty(selectedIndexes[0], "fileName")
                             }
                         } else {
                             control.selectedFile = undefined
