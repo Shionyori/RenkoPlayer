@@ -8,6 +8,8 @@ RDialog {
     
     property string text: ""
     property string informativeText: ""
+    property color textColor: Theme.text
+    property color informativeTextColor: Theme.text
     
     // Default width constraint
     width: Math.min(400, parent ? parent.width * 0.9 : 400)
@@ -33,6 +35,7 @@ RDialog {
             wrapMode: Text.Wrap
             Layout.fillWidth: true
             visible: text !== ""
+            color: control.textColor
         }
         
         RLabel {
@@ -40,7 +43,7 @@ RDialog {
             wrapMode: Text.Wrap
             Layout.fillWidth: true
             visible: text !== ""
-            color: Theme.text
+            color: control.informativeTextColor
             opacity: 0.8
         }
     }

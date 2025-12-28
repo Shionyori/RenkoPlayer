@@ -5,6 +5,11 @@ import RenkoUI
 MenuBar {
     id: control
 
+    property color backgroundColor: Theme.surface
+    property color itemHighlightColor: Theme.accent
+    property color itemTextColor: Theme.text
+    property color itemHighlightTextColor: Theme.textInverse
+
     delegate: MenuBarItem {
         id: menuBarItem
         font.pixelSize: Theme.fontSizeNormal
@@ -13,7 +18,7 @@ MenuBar {
             text: menuBarItem.text
             font: menuBarItem.font
             opacity: enabled ? 1.0 : 0.3
-            color: menuBarItem.highlighted ? Theme.textInverse : Theme.text
+            color: menuBarItem.highlighted ? control.itemHighlightTextColor : control.itemTextColor
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
             elide: Text.ElideRight
@@ -23,12 +28,12 @@ MenuBar {
             implicitWidth: 60
             implicitHeight: 30
             opacity: enabled ? 1 : 0.3
-            color: menuBarItem.highlighted ? Theme.accent : "transparent"
+            color: menuBarItem.highlighted ? control.itemHighlightColor : "transparent"
             radius: Theme.radiusSmall
         }
     }
 
     background: Rectangle {
-        color: Theme.surface
+        color: control.backgroundColor
     }
 }

@@ -14,14 +14,19 @@ Switch {
         leftPadding: control.indicator.width + Theme.spacingSmall
     }
 
+    property color checkedColor: Theme.accent
+    property color uncheckedColor: Theme.surfaceHighlight
+    property color handleColor: Theme.primary
+    property color borderColor: Theme.border
+
     indicator: Rectangle {
         implicitWidth: 40
         implicitHeight: 20
         x: control.leftPadding
         y: parent.height / 2 - height / 2
         radius: 10
-        color: control.checked ? Theme.accent : Theme.surfaceHighlight
-        border.color: Theme.border
+        color: control.checked ? control.checkedColor : control.uncheckedColor
+        border.color: control.borderColor
         border.width: 1
 
         Rectangle {
@@ -30,7 +35,7 @@ Switch {
             width: 16
             height: 16
             radius: 8
-            color: Theme.primary
+            color: control.handleColor
             Behavior on x {
                 NumberAnimation { duration: 100 }
             }

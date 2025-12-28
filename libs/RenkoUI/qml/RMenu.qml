@@ -5,13 +5,17 @@ import RenkoUI
 Menu {
     id: control
 
+    property color backgroundColor: Theme.surface
+    property color borderColor: Theme.border
+    property real radius: Theme.radiusSmall
+
     delegate: RMenuItem { }
 
     background: Rectangle {
         implicitWidth: 200
         implicitHeight: 30
-        color: Theme.surface
-        border.color: Theme.border
-        radius: Theme.radiusSmall
+        color: control.backgroundColor
+        border.color: control.borderColor
+        radius: control.radius
     }
 }

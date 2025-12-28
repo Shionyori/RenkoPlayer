@@ -40,6 +40,11 @@ Popup {
     // Styling
     padding: 0
     
+    property color headerColor: "#20201F"
+    property color headerBorderColor: "#333333"
+    property color backgroundColor: Theme.surface
+    property real radius: Theme.radiusNormal
+
     background: Rectangle {
         color: "transparent"
         
@@ -49,13 +54,14 @@ Popup {
             anchors.topMargin: 30 // Leave space for header
             
             // Remove top radius to merge with header
-            radius: Theme.radiusNormal
+            radius: control.radius
+            backgroundColor: control.backgroundColor
             
             // Patch to make top corners square (so they join with header)
             Rectangle {
                 anchors.top: parent.top
                 width: parent.width
-                height: Theme.radiusNormal
+                height: control.radius
                 color: parent.color
             }
         }
@@ -66,14 +72,14 @@ Popup {
             width: parent.width
             height: 30
             anchors.top: parent.top
-            color: "#20201F"
-            radius: Theme.radiusNormal
+            color: control.headerColor
+            radius: control.radius
             
             // Patch to make bottom corners square
             Rectangle {
                 anchors.bottom: parent.bottom
                 width: parent.width
-                height: Theme.radiusNormal
+                height: control.radius
                 color: parent.color
             }
             
@@ -82,7 +88,7 @@ Popup {
                 anchors.bottom: parent.bottom
                 width: parent.width
                 height: 1
-                color: "#333333"
+                color: control.headerBorderColor
             }
         }
     }
@@ -151,7 +157,7 @@ Popup {
                     text: "✕"
                     isIconOnly: true
                     flat: true
-                    customBackgroundColor: "transparent"
+                    backgroundColor: "transparent"
                     onClicked: control.reject()
                     
                     // Custom hover for close button (red)

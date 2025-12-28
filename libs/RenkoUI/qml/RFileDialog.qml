@@ -188,8 +188,8 @@ RDialog {
                         isIconOnly: false
                         flat: true
                         height: 36
-                        customBackgroundColor: "transparent"
-                        customAccentColor: Theme.surfaceHighlight
+                        backgroundColor: "transparent"
+                        accentColor: Theme.surfaceHighlight
                         
                         // Custom hover effect for breadcrumbs
                         background: Rectangle {
@@ -239,7 +239,7 @@ RDialog {
                 tooltip: checked ? qsTr("Hide Hidden Files") : qsTr("Show Hidden Files")
                 
                 // Visual indicator for checked state
-                customAccentColor: checked ? Theme.accent : Theme.surfaceHighlight
+                accentColor: checked ? Theme.accent : Theme.surfaceHighlight
             }
             
             RButton {

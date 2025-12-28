@@ -5,8 +5,13 @@ import RenkoUI
 Button {
     id: control
 
-    property color customBackgroundColor: Theme.surface
-    property color customAccentColor: Theme.accent
+    property color backgroundColor: Theme.surface
+    property color accentColor: Theme.accent
+    property color textColor: control.highlighted ? Theme.textInverse : Theme.text
+    property color borderColor: Theme.border
+    property real borderWidth: 1
+    property real radius: Theme.radiusNormal
+
     property bool isIconOnly: false
     property string tooltip: ""
     ToolTip.text: tooltip
@@ -19,20 +24,20 @@ Button {
     font.pixelSize: Theme.fontSizeNormal
     
     display: isIconOnly ? AbstractButton.IconOnly : AbstractButton.TextBesideIcon
-    palette.buttonText: control.highlighted ? Theme.textInverse : Theme.text
+    palette.buttonText: textColor
 
     background: Rectangle {
         implicitWidth: Math.max(control.isIconOnly ? 36 : 80, control.contentItem.implicitWidth + 32)
         implicitHeight: 36
-        radius: Theme.radiusNormal
+        radius: control.radius
         color: {
             if (!control.enabled) return Theme.background
-            if (control.down) return control.highlighted ? Qt.darker(control.customAccentColor, 1.2) : Qt.darker(Theme.surfaceHighlight, 1.1)
-            if (control.hovered) return control.highlighted ? Qt.lighter(control.customAccentColor, 1.1) : Theme.surfaceHighlight
-            return control.highlighted ? control.customAccentColor : control.customBackgroundColor
+            if (control.down) return control.highlighted ? Qt.darker(control.accentColor, 1.2) : Qt.darker(Theme.surfaceHighlight, 1.1)
+            if (control.hovered) return control.highlighted ? Qt.lighter(control.accentColor, 1.1) : Theme.surfaceHighlight
+            return control.highlighted ? control.accentColor : control.backgroundColor
         }
-        border.color: (control.highlighted || control.flat) ? "transparent" : Theme.border
-        border.width: (control.highlighted || control.flat) ? 0 : 1
+        border.color: (control.highlighted || control.flat) ? "transparent" : control.borderColor
+        border.width: (control.highlighted || control.flat) ? 0 : control.borderWidth
         
         Behavior on color { ColorAnimation { duration: 100 } }
     }
