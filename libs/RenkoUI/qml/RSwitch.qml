@@ -18,23 +18,27 @@ Switch {
     property color uncheckedColor: Theme.surfaceHighlight
     property color handleColor: Theme.primary
     property color borderColor: Theme.border
+    
+    property real indicatorWidth: 40
+    property real indicatorHeight: 20
+    property real handleSize: 16
 
     indicator: Rectangle {
-        implicitWidth: 40
-        implicitHeight: 20
+        implicitWidth: control.indicatorWidth
+        implicitHeight: control.indicatorHeight
         x: control.leftPadding
         y: parent.height / 2 - height / 2
-        radius: 10
+        radius: height / 2
         color: control.checked ? control.checkedColor : control.uncheckedColor
         border.color: control.borderColor
         border.width: 1
 
         Rectangle {
             x: control.checked ? parent.width - width - 2 : 2
-            y: 2
-            width: 16
-            height: 16
-            radius: 8
+            y: (parent.height - height) / 2
+            width: control.handleSize
+            height: control.handleSize
+            radius: width / 2
             color: control.handleColor
             Behavior on x {
                 NumberAnimation { duration: 100 }

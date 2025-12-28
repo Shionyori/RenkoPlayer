@@ -18,12 +18,14 @@ ToolButton {
     property color hoverColor: Theme.surfaceHighlight
     property color downColor: Theme.surfaceHighlight
     property real radius: Theme.radiusSmall
+    
+    property real buttonSize: 40
 
     palette.buttonText: control.highlighted ? Theme.accent : Theme.text
     
     background: Rectangle {
-        implicitWidth: 40
-        implicitHeight: 40
+        implicitWidth: control.buttonSize
+        implicitHeight: control.buttonSize
         color: control.down ? control.downColor : "transparent"
         radius: control.radius
         border.color: "transparent"

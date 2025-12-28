@@ -6,6 +6,9 @@ TextField {
     id: control
 
     property color backgroundColor: control.enabled ? Theme.surface : Theme.background
+    
+    property real preferredHeight: 36
+    property real preferredWidth: 200
 
     color: Theme.text
     selectionColor: Theme.accent
@@ -15,8 +18,8 @@ TextField {
     font.pixelSize: Theme.fontSizeNormal
 
     background: Rectangle {
-        implicitWidth: 200
-        implicitHeight: 36
+        implicitWidth: control.preferredWidth
+        implicitHeight: control.preferredHeight
         color: control.backgroundColor
         border.color: control.activeFocus ? Theme.accent : Theme.border
         border.width: control.activeFocus ? 2 : 1

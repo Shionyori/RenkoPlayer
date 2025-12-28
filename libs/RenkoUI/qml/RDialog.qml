@@ -44,6 +44,8 @@ Popup {
     property color headerBorderColor: "#333333"
     property color backgroundColor: Theme.surface
     property real radius: Theme.radiusNormal
+    
+    property real headerHeight: 30
 
     background: Rectangle {
         color: "transparent"
@@ -51,7 +53,7 @@ Popup {
         // 1. Main Body Background (White, Rounded)
         RPanel {
             anchors.fill: parent
-            anchors.topMargin: 30 // Leave space for header
+            anchors.topMargin: control.headerHeight // Leave space for header
             
             // Remove top radius to merge with header
             radius: control.radius
@@ -70,7 +72,7 @@ Popup {
         Rectangle {
             id: headerBg
             width: parent.width
-            height: 30
+            height: control.headerHeight
             anchors.top: parent.top
             color: control.headerColor
             radius: control.radius
@@ -99,7 +101,7 @@ Popup {
         // Header
         Item {
             Layout.fillWidth: true
-            Layout.preferredHeight: 30
+            Layout.preferredHeight: control.headerHeight
             
             // Drag Handler
             MouseArea {

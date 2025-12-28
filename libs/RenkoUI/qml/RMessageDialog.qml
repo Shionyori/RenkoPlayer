@@ -11,8 +11,10 @@ RDialog {
     property color textColor: Theme.text
     property color informativeTextColor: Theme.text
     
+    property real preferredWidth: 400
+    
     // Default width constraint
-    width: Math.min(400, parent ? parent.width * 0.9 : 400)
+    width: Math.min(control.preferredWidth, parent ? parent.width * 0.9 : control.preferredWidth)
     
     standardButtons: Dialog.Ok
 

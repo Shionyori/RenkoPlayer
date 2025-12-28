@@ -14,6 +14,7 @@ RWindow {
     color: Theme.background
 
     menuBar: RMenuBar {
+        itemHeight: 20
         RMenu {
             title: qsTr("File")
             RMenuItem {
@@ -402,7 +403,25 @@ RWindow {
                         text: "360° Mode"
                         checked: isPanorama
                         
-                        indicatorColor: Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0.4)
+                        indicator: Rectangle {
+                            implicitWidth: 20
+                            implicitHeight: 20
+                            x: panoramaCheckBox.leftPadding
+                            y: parent.height / 2 - height / 2
+                            radius: Theme.radiusSmall
+                            border.color: panoramaCheckBox.down ? Theme.accent : Theme.border
+                            color: Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0.4)
+
+                            Rectangle {
+                                width: 12
+                                height: 12
+                                x: 4
+                                y: 4
+                                radius: 2
+                                color: Theme.accent
+                                visible: panoramaCheckBox.checked
+                            }
+                        }
 
                         onCheckedChanged: {
                             var currentPos = isPanorama ? panoramaPlayer.position : videoPlayer.position

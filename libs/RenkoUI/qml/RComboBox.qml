@@ -59,10 +59,13 @@ ComboBox {
     }
 
     property color backgroundColor: Theme.surface
+    
+    property real preferredHeight: 35
+    property real preferredWidth: 120
 
     background: Rectangle {
-        implicitWidth: 120
-        implicitHeight: 35
+        implicitWidth: control.preferredWidth
+        implicitHeight: control.preferredHeight
         color: control.pressed ? Theme.surfaceHighlight : control.backgroundColor
         border.color: Theme.border
         border.width: 1

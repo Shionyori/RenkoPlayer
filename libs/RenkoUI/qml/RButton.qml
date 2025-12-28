@@ -11,6 +11,9 @@ Button {
     property color borderColor: Theme.border
     property real borderWidth: 1
     property real radius: Theme.radiusNormal
+    
+    property real buttonHeight: 36
+    property real minimumWidth: isIconOnly ? 36 : 80
 
     property bool isIconOnly: false
     property string tooltip: ""
@@ -27,8 +30,8 @@ Button {
     palette.buttonText: textColor
 
     background: Rectangle {
-        implicitWidth: Math.max(control.isIconOnly ? 36 : 80, control.contentItem.implicitWidth + 32)
-        implicitHeight: 36
+        implicitWidth: Math.max(control.minimumWidth, control.contentItem.implicitWidth + 32)
+        implicitHeight: control.buttonHeight
         radius: control.radius
         color: {
             if (!control.enabled) return Theme.background

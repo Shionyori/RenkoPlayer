@@ -9,6 +9,9 @@ MenuBar {
     property color itemHighlightColor: Theme.accent
     property color itemTextColor: Theme.text
     property color itemHighlightTextColor: Theme.textInverse
+    
+    property real itemHeight: 30
+    property real itemWidth: 60
 
     delegate: MenuBarItem {
         id: menuBarItem
@@ -25,8 +28,8 @@ MenuBar {
         }
 
         background: Rectangle {
-            implicitWidth: 60
-            implicitHeight: 30
+            implicitWidth: control.itemWidth
+            implicitHeight: control.itemHeight
             opacity: enabled ? 1 : 0.3
             color: menuBarItem.highlighted ? control.itemHighlightColor : "transparent"
             radius: Theme.radiusSmall
