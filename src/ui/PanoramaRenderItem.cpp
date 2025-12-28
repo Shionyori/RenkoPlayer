@@ -320,6 +320,10 @@ void PanoramaRenderItem::setPosition(qint64 position) {
     m_decoder.seek(position / 1000.0);
 }
 
+bool PanoramaRenderItem::isPlaying() const {
+    return m_decoder.isPlaying();
+}
+
 void PanoramaRenderItem::play() {
     if (m_decoder.isStopped() && !m_source.isEmpty()) {
         QString path = m_source;
@@ -363,6 +367,7 @@ void PanoramaRenderItem::play() {
                     }
                     
                     m_decoder.play();
+                    emit playingChanged();
                 });
             }
         });
@@ -371,6 +376,7 @@ void PanoramaRenderItem::play() {
         if (m_audioSink && m_audioSink->state() == QAudio::SuspendedState) {
             m_audioSink->resume();
         }
+        emit playingChanged();
     }
 }
 
@@ -379,6 +385,7 @@ void PanoramaRenderItem::pause() {
     if (m_audioSink && m_audioSink->state() == QAudio::ActiveState) {
         m_audioSink->suspend();
     }
+    emit playingChanged();
 }
 
 void PanoramaRenderItem::stop() {
@@ -386,6 +393,7 @@ void PanoramaRenderItem::stop() {
     if (m_audioSink) {
         m_audioSink->stop();
     }
+    emit playingChanged();
 }
 
 void PanoramaRenderItem::setResolution(int width, int height) {

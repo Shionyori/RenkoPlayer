@@ -69,6 +69,61 @@ RWindow {
         text: "RenkoPlayer v1.0\n\nA modern C++ video player using Qt 6 and FFmpeg.\n\nCreated by Shionyori."
     }
 
+    Shortcut {
+        sequence: "Space"
+        onActivated: {
+            if (isPanorama) {
+                if (panoramaPlayer.playing) panoramaPlayer.pause()
+                else panoramaPlayer.play()
+            } else {
+                if (videoPlayer.playing) videoPlayer.pause()
+                else videoPlayer.play()
+            }
+        }
+    }
+
+    Shortcut {
+        sequence: "Left"
+        onActivated: {
+            var player = isPanorama ? panoramaPlayer : videoPlayer
+            var newPos = player.position - 5000
+            if (newPos < 0) newPos = 0
+            player.position = newPos
+        }
+    }
+
+    Shortcut {
+        sequence: "Right"
+        onActivated: {
+            var player = isPanorama ? panoramaPlayer : videoPlayer
+            var newPos = player.position + 5000
+            if (newPos > player.duration) newPos = player.duration
+            player.position = newPos
+        }
+    }
+
+    Shortcut {
+        sequence: "Up"
+        onActivated: {
+            var newVol = volumeSlider.value + 0.1
+            if (newVol > 1.0) newVol = 1.0
+            volumeSlider.value = newVol
+            videoPlayer.volume = newVol
+            panoramaPlayer.volume = newVol
+        }
+    }
+
+    Shortcut {
+        sequence: "Down"
+        onActivated: {
+            var newVol = volumeSlider.value - 0.1
+            if (newVol < 0.0) newVol = 0.0
+            volumeSlider.value = newVol
+            videoPlayer.volume = newVol
+            panoramaPlayer.volume = newVol
+        }
+    }
+
     ColumnLayout {
         anchors.fill: parent
         spacing: 0

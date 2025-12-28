@@ -21,6 +21,7 @@ class PanoramaRenderItem : public QQuickFramebufferObject {
     Q_PROPERTY(qint64 duration READ duration NOTIFY durationChanged)
     Q_PROPERTY(qint64 position READ position WRITE setPosition NOTIFY positionChanged)
     Q_PROPERTY(qreal volume READ volume WRITE setVolume NOTIFY volumeChanged)
+    Q_PROPERTY(bool playing READ isPlaying NOTIFY playingChanged)
 
 public:
     PanoramaRenderItem(QQuickItem* parent = nullptr);
@@ -47,6 +48,8 @@ public:
     qreal volume() const { return m_volume; }
     void setVolume(qreal volume);
 
+    bool isPlaying() const;
+
     Q_INVOKABLE void play();
     Q_INVOKABLE void pause();
     Q_INVOKABLE void stop();
@@ -65,6 +68,7 @@ signals:
     void durationChanged();
     void positionChanged();
     void volumeChanged();
+    void playingChanged();
     void errorOccurred(QString message);
 
 private:

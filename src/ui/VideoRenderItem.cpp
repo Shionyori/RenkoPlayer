@@ -133,6 +133,10 @@ void VideoRenderItem::setPosition(qint64 position) {
     m_decoder.seek(position / 1000.0);
 }
 
+bool VideoRenderItem::isPlaying() const {
+    return m_decoder.isPlaying();
+}
+
 void VideoRenderItem::play() {
     // If stopped, we need to re-open, which might block, so do it in thread if needed
     if (m_decoder.isStopped() && !m_source.isEmpty()) {
@@ -178,6 +182,7 @@ void VideoRenderItem::play() {
                     }
 
                     m_decoder.play();
+                    emit playingChanged();
                 });
             }
         });
@@ -186,6 +191,7 @@ void VideoRenderItem::play() {
         if (m_audioSink && m_audioSink->state() == QAudio::SuspendedState) {
             m_audioSink->resume();
         }
+        emit playingChanged();
     }
 }
 
@@ -194,6 +200,7 @@ void VideoRenderItem::pause() {
     if (m_audioSink && m_audioSink->state() == QAudio::ActiveState) {
         m_audioSink->suspend();
     }
+    emit playingChanged();
 }
 
 void VideoRenderItem::stop() {
@@ -201,6 +208,7 @@ void VideoRenderItem::stop() {
     if (m_audioSink) {
         m_audioSink->stop();
     }
+    emit playingChanged();
 }
 
 void VideoRenderItem::setResolution(int width, int height) {

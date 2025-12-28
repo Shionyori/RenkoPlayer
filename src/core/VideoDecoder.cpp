@@ -235,6 +235,7 @@ void VideoDecoder::pause() {
 
 void VideoDecoder::stop() {
     std::lock_guard<std::mutex> lock(m_apiMutex);
+    m_isPlaying = false;
     m_stopThread = true;
     if (m_decodeThread.joinable()) {
         m_decodeThread.join();
