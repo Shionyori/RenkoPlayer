@@ -124,14 +124,30 @@ RWindow {
         }
     }
 
-    ColumnLayout {
+    property bool controlsVisible: true
+    
+    Timer {
+        id: hideTimer
+        interval: 3000
+        repeat: false
+        onTriggered: {
+            if ((isPanorama ? panoramaPlayer.playing : videoPlayer.playing) && !controlsPanel.isHoveringControls) {
+                controlsVisible = false
+            }
+        }
+    }
+
+    function showControls() {
+        controlsVisible = true
+        hideTimer.restart()
+    }
+
+    Item {
         anchors.fill: parent
-        spacing: 0
 
         // Video Area
         Rectangle {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
+            anchors.fill: parent
             color: "black" // Video background should remain black
 
             VideoRenderItem {
@@ -144,6 +160,10 @@ RWindow {
                 }
                 onPositionChanged: {
                     if (!isPanorama && !progressSlider.pressed) progressSlider.value = position
+                }
+                onPlayingChanged: {
+                    if (!playing) showControls()
+                    else hideTimer.restart()
                 }
             }
 
@@ -158,12 +178,20 @@ RWindow {
                 onPositionChanged: {
                     if (isPanorama && !progressSlider.pressed) progressSlider.value = position
                 }
+                onPlayingChanged: {
+                    if (!playing) showControls()
+                    else hideTimer.restart()
+                }
 
                 MouseArea {
                     anchors.fill: parent
                     property point lastPos
-                    onPressed: (mouse) => { lastPos = Qt.point(mouse.x, mouse.y) }
+                    onPressed: (mouse) => { 
+                        lastPos = Qt.point(mouse.x, mouse.y)
+                        showControls()
+                    }
                     onPositionChanged: (mouse) => {
+                        showControls()
                         var dx = mouse.x - lastPos.x
                         var dy = mouse.y - lastPos.y
                         panoramaPlayer.yaw -= dx * 0.2
@@ -173,6 +201,7 @@ RWindow {
                         lastPos = Qt.point(mouse.x, mouse.y)
                     }
                     onWheel: (wheel) => {
+                        showControls()
                         var newFov = panoramaPlayer.fov - wheel.angleDelta.y / 120 * 5
                         if (newFov < 30) newFov = 30
                         if (newFov > 120) newFov = 120
@@ -180,15 +209,49 @@ RWindow {
                     }
                 }
             }
+
+            MouseArea {
+                anchors.fill: parent
+                hoverEnabled: true
+                acceptedButtons: Qt.NoButton
+                onPositionChanged: showControls()
+            }
         }
 
         // Controls Area
         RPanel {
-            Layout.fillWidth: true
-            Layout.preferredHeight: 100
+            id: controlsPanel
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: controlsVisible ? 0 : -height
+            anchors.left: parent.left
+            anchors.right: parent.right
+            height: 100
             color: Theme.surface
+            opacity: 0.85
             radius: 0 // Flat bottom panel
-            border.width: 0
+            
+            property bool isHoveringControls: false
+
+            Behavior on anchors.bottomMargin {
+                NumberAnimation {
+                    duration: 300
+                    easing.type: Easing.OutQuad
+                }
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                hoverEnabled: true
+                onEntered: controlsPanel.isHoveringControls = true
+                onExited: {
+                    controlsPanel.isHoveringControls = false
+                    showControls()
+                }
+                onPositionChanged: showControls()
+                onPressed: showControls()
+                propagateComposedEvents: true
+                onClicked: (mouse) => mouse.accepted = false
+            }
 
             ColumnLayout {
                 anchors.fill: parent
@@ -211,6 +274,12 @@ RWindow {
                         to: isPanorama ? panoramaPlayer.duration : videoPlayer.duration
                         value: pressed ? value : (isPanorama ? panoramaPlayer.position : videoPlayer.position)
                         
+                        // Enhanced visibility styling
+                        trackColor: "#BDBDBD"
+                        handleSize: 20
+                        handleBorderWidth: 3
+                        handleBorderColor: Theme.surface
+                        
                         onMoved: {
                             if (isPanorama) panoramaPlayer.position = value
                             else videoPlayer.position = value
@@ -232,6 +301,8 @@ RWindow {
                         Layout.fillWidth: true
                         Layout.preferredHeight: 32
                         placeholderText: "Enter Video URL (e.g., rtsp://..., http://..., or file path)"
+                        
+                        backgroundColor: Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0.4)
                     }
 
                     RToolButton {
@@ -290,6 +361,12 @@ RWindow {
                             value: 1.0
                             Layout.preferredWidth: 100
                             
+                            // Enhanced visibility styling
+                            trackColor: "#BDBDBD"
+                            handleSize: 16
+                            handleBorderWidth: 3
+                            handleBorderColor: Theme.surface
+                            
                             onMoved: {
                                 videoPlayer.volume = value
                                 panoramaPlayer.volume = value
@@ -302,6 +379,8 @@ RWindow {
                         model: ["Original", "1080p", "720p", "480p", "360p"]
                         currentIndex: 0
                         Layout.preferredWidth: 100
+                        
+                        backgroundColor: Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0.4)
 
                         onActivated: (index) => {
                             var w = 0
@@ -319,8 +398,12 @@ RWindow {
                     }
 
                     RCheckBox {
+                        id: panoramaCheckBox
                         text: "360° Mode"
                         checked: isPanorama
+                        
+                        indicatorColor: Qt.rgba(Theme.surface.r, Theme.surface.g, Theme.surface.b, 0.4)
+
                         onCheckedChanged: {
                             var currentPos = isPanorama ? panoramaPlayer.position : videoPlayer.position
                             var currentSrc = isPanorama ? panoramaPlayer.source : videoPlayer.source

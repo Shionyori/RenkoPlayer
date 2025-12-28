@@ -58,10 +58,12 @@ ComboBox {
         elide: Text.ElideRight
     }
 
+    property color backgroundColor: Theme.surface
+
     background: Rectangle {
         implicitWidth: 120
         implicitHeight: 35
-        color: control.pressed ? Theme.surfaceHighlight : Theme.surface
+        color: control.pressed ? Theme.surfaceHighlight : control.backgroundColor
         border.color: Theme.border
         border.width: 1
         radius: Theme.radiusSmall

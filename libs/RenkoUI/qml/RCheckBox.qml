@@ -6,6 +6,7 @@ CheckBox {
     id: control
 
     text: qsTr("CheckBox")
+    property color indicatorColor: Theme.surface
     
     contentItem: Text {
         text: control.text
@@ -23,7 +24,7 @@ CheckBox {
         y: parent.height / 2 - height / 2
         radius: Theme.radiusSmall
         border.color: control.down ? Theme.accent : Theme.border
-        color: Theme.surface
+        color: control.indicatorColor
 
         Rectangle {
             width: 12

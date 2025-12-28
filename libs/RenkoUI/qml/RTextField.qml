@@ -5,6 +5,8 @@ import RenkoUI
 TextField {
     id: control
 
+    property color backgroundColor: control.enabled ? Theme.surface : Theme.background
+
     color: Theme.text
     selectionColor: Theme.accent
     selectedTextColor: Theme.textInverse
@@ -15,7 +17,7 @@ TextField {
     background: Rectangle {
         implicitWidth: 200
         implicitHeight: 36
-        color: control.enabled ? Theme.surface : Theme.background
+        color: control.backgroundColor
         border.color: control.activeFocus ? Theme.accent : Theme.border
         border.width: control.activeFocus ? 2 : 1
         radius: Theme.radiusSmall
